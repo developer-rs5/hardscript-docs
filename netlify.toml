@@ -1,0 +1,48 @@
+# Netlify build configuration.
+#
+# The site is fully static — `next build` prerenders every page, including every
+# documentation page, because the content tree is read at build time. There is
+# no server function and no runtime dependency, which is the same property that
+# makes the docs cheap to host and easy to reproduce.
+
+[build]
+  # The validator runs first because `npm run build` includes it, and it needs a
+  # real compiler. This resolves one: $HARD_BIN if the build image has it, a
+  # sibling checkout if this is a developer machine, and otherwise a shallow
+  # clone plus a release build.
+  command = "HARD_BIN=\$(bash scripts/ci/ensure-compiler.sh) npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  # Pin the compiler revision the snippets are validated against. Without this,
+  # a documentation build checks its examples against whatever the compiler's
+  # default branch is that week — a moving target underneath a page that claims
+  # a specific version. Bump it deliberately, when the site claims a new one.
+  # The tag this site documents. A branch would validate snippets against a
+  # moving target; the compiler's default branch is `master`, not `main`.
+  HARD_REF = "v0.9-alpha"
+  # Caching `.hardscript-compiler/target` turns the cold build above into a
+  # no-op on later deploys. Netlify persists the build image's caches between
+  # builds, so excluding this directory from the build output is the whole
+  # change needed; the alternative is paying several minutes of Rust on every
+  # deploy.
+  # HARD_BIN = "/opt/hardscript/target/release/hard"
+
+[[headers]]
+  # Generated pages change on every deploy, so they must not be cached past it.
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  # Hashed build assets never change content, so they can be cached hard.
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[redirects]]
+  # One catch-all, so a page that moves does not 404 in a bookmark.
+  from = "/documentation"
+  to = "/docs"
+  status = 301

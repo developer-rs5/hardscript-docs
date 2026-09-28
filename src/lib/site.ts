@@ -5,7 +5,16 @@ export const site = {
   tagline: "Build backend APIs at native speed.",
   description:
     "HardScript is a compiled backend language with a built-in ORM, authentication, cache, queue, scheduler, deployment, package manager, registry and Docker support.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://hardscript.org",
+  /**
+   * The canonical origin, used for metadataBase, canonical tags, the sitemap
+   * and robots.txt. A placeholder here does not fail loudly: the build succeeds
+   * and every canonical URL points at a domain that does not resolve, which is
+   * the kind of mistake that only shows up in a search result months later.
+   *
+   * Override it with NEXT_PUBLIC_SITE_URL when the domain changes, and the
+   * sitemap follows without a code change.
+   */
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://hardscript.netlify.app",
   // Both repositories were verified to exist before being written here. A
   // footer link to a repository that does not exist is worse than no link, and
   // it is invisible until a reader clicks it.

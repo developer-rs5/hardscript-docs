@@ -154,3 +154,40 @@ describe("headings", () => {
     expect(tableOfContents(body).map((h) => h.text)).toEqual(["One", "Two"]);
   });
 });
+
+describe("the sitemap", () => {
+  it("lists every documentation page exactly once", async () => {
+    // A hand-written sitemap lists 40 of 250 pages and nothing reports it.
+    // This one is generated, and the test says so: one entry per page, no
+    // duplicates, and no page missing.
+    const { default: sitemap } = await import("@/app/sitemap");
+    const entries = sitemap();
+    const locs = entries.map((e) => e.url.replace("https://hardscript.netlify.app", ""));
+    const pages = allPages().map((p) => p.slug);
+    for (const slug of pages) {
+      expect(locs, `sitemap is missing ${slug}`).toContain(slug);
+    }
+    const docEntries = locs.filter((l) => l.startsWith("/docs/"));
+    expect(new Set(docEntries).size).toBe(docEntries.length);
+    expect(docEntries.length).toBe(pages.length);
+  });
+
+  it("puts the home page and the docs index before the leaves", async () => {
+    const { default: sitemap } = await import("@/app/sitemap");
+    const { site } = await import("@/lib/site");
+    const entries = sitemap();
+    expect(entries[0].url).toBe(site.url);
+    expect(entries[0].priority).toBe(1);
+    expect(entries[1].url).toBe(`${site.url}/docs`);
+  });
+
+  it("builds every URL from the configured origin", async () => {
+    // A sitemap that mixes two origins is the quietest SEO bug there is: it
+    // looks fine, ranks like nothing, and no build step complains.
+    const { default: sitemap } = await import("@/app/sitemap");
+    const { site } = await import("@/lib/site");
+    for (const e of sitemap()) {
+      expect(e.url.startsWith(site.url), `${e.url} is not on ${site.url}`).toBe(true);
+    }
+  });
+});
