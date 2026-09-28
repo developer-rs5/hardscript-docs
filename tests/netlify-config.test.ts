@@ -88,3 +88,41 @@ describe("the file itself", () => {
     expect(toml).not.toMatch(/command\s*=\s*"[^"]*\\\$/);
   });
 });
+
+describe("ensure-compiler.sh", () => {
+  const script = readFileSync("scripts/ci/ensure-compiler.sh", "utf8");
+
+  it("never prints a token", () => {
+    // The build log is the worst possible place for a credential: it is
+    // persisted, linkable, and often world-readable in a CI UI. The token goes
+    // into a URL for git and nowhere else.
+    expect(script).toContain('AUTH="x-access-token:');
+    expect(script).not.toMatch(/echo\s+"?\$\{?GITHUB_TOKEN/);
+    expect(script).not.toMatch(/echo\s+"?\$\{?GH_TOKEN/);
+    expect(script).not.toMatch(/log\s+"?\$\{?GITHUB_TOKEN/);
+    expect(script).toContain("GIT_TERMINAL_PROMPT=0");
+  });
+
+  it("pins a release tag by default, not a branch", () => {
+    // Validating snippets against a moving branch means the site's claims
+    // change without a deploy, and the compiler's default branch is `master`,
+    // not `main`.
+    expect(script).toMatch(/REF="\$\{HARD_REF:-v\d+\.\d+[^}]*\}"/);
+    expect(script).toContain("--branch \"$REF\"");
+  });
+
+  it("explains the private-repository failure instead of leaving a git error", () => {
+    // The failure this replaces was `fatal: could not read Username`, which
+    // tells a build host operator nothing about what to do next.
+    expect(script).toContain("is private, so an anonymous clone cannot work");
+    expect(script).toContain("Set GITHUB_TOKEN in the build environment");
+    expect(script).toContain("Or set HARD_BIN to a compiler you have already built");
+  });
+
+  it("treats a bad \\$HARD_BIN as an error rather than a fallback", () => {
+    // Falling back would validate against a different compiler than the operator
+    // asked for, and report success.
+    expect(script).toMatch(/if \[ -n "\$\{HARD_BIN:-\}" \]; then\n  if usable/);
+    expect(script).toContain('FATAL: \\$HARD_BIN is set to');
+  });
+});

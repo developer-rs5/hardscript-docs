@@ -18,6 +18,13 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # The compiler repository is private, so the build cannot clone it
+  # anonymously. Set GITHUB_TOKEN in the Netlify environment to a fine-grained
+  # token with read-only Contents access to developer-rs5/hardscript-1 — that is
+  # the whole requirement. It is only ever handed to git through a URL and is
+  # never printed, and the script says so in the log when it is present.
+  # GITHUB_TOKEN = "<fine-grained token, read-only Contents>"
+  #
   # Pin the compiler revision the snippets are validated against. Without this,
   # a documentation build checks its examples against whatever the compiler's
   # default branch is that week — a moving target underneath a page that claims
