@@ -79,10 +79,14 @@ GET "/users" :: {
     ?(fs.exists(store)) {
         <- json.parse(fs.read(store))
     }
-    <- []
+    fs.write(store, "[]")
+    <- json.parse(fs.read(store))
 }
 
 POST "/users" :: (body = User) {
+    ?(!fs.exists(store)) {
+        <- { status: 503, error: "store not initialised: call GET /users first" }
+    }
     users <- json.parse(fs.read(store))
     created <- { id: body.email, name: body.name }
     fs.write(store, json.stringify(users + [created]))
@@ -115,9 +119,21 @@ $ curl -s -X POST localhost:8080/users \
     -H 'content-type: application/json' \
     -d '{"email":"ada@example.com","name":"Ada"}'
 {"status":201,"user":{"id":"ada@example.com","name":"Ada"}}
+$ curl -s -X POST localhost:8080/users \
+    -H 'content-type: application/json' \
+    -d '{"email":"grace@example.com","name":"Grace"}'
+{"status":201,"user":{"id":"grace@example.com","name":"Grace"}}
 $ curl -s localhost:8080/users
-[{"id":"ada@example.com","name":"Ada"}]
+[{"id":"ada@example.com","name":"Ada"},{"id":"grace@example.com","name":"Grace"}]
 ```
+
+<Callout kind="warning" title="The GET comes first, and that is not incidental">
+The store is a file, and the first `GET` is what creates it. A `POST` before
+any `GET` does not create it — it answers the guard above with
+`{"status":503,…}`, which is the honest answer for a store that is not there
+yet. The order above is the order the program works in, and every line of it was
+run before it was written down.
+</Callout>
 
 </Step>
 </Steps>

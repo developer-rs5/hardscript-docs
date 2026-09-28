@@ -40,6 +40,9 @@ compile, and no gap is left undocumented.
 | [L-08](#l-08-model-attribute-forms) | `#attr` and `@attr` are not interchangeable | Rejects at parse | v0.10 |
 | [L-09](#l-09-no-cache-statement) | No `cache` statement | `HS0001` | v0.10 |
 | [L-10](#l-10-optional-and-default-fields) | `?` and `= value` only in the brace form | Rejects at parse | v0.10 |
+| [L-11](#l-11-body-status-is-not-http-status) | `status` in a body is not the HTTP status | Silent: always `200` | v0.10 |
+| [L-12](#l-12-block-scoped-assignment) | A value assigned in a `?` block does not survive it | Silent: the old value | v0.10 |
+| [L-13](#l-13-top-level-calls-dropped) | A top-level function call never runs | Silent: dropped by codegen | v0.10 |
 
 <Limitation
   id="l-01-no-else"
@@ -111,6 +114,30 @@ compile, and no gap is left undocumented.
   expected="A `cache &quot;key&quot; ttl 10m { … }` statement that declares a cached region."
   why="`cache` is not a keyword, so it is lexed as an identifier and the parser rejects it as an unexpected token. The runtime ships `hs_runtime_cache.hpp`, so the capability exists on the C++ side and not in the language."
   tracked="L-09. Cache declarations, v0.10."
+/>
+
+<Limitation
+  id="l-11-body-status-is-not-http-status"
+  current="A handler answers `200`, with the value it returned as the body. A handler that throws answers `500`."
+  expected="`<- { status: 201, … }` answering an HTTP `201 Created`, the way a framework would."
+  why="`status` is an ordinary key in a map, and the runtime serialises the map as the body without reading it. The one thing that does move the status code is failing — a route error becomes a `500` with a `route error:` body."
+  tracked="L-11. HTTP status codes, v0.10. Read the code out of the body, or return an error to get a real status."
+/>
+
+<Limitation
+  id="l-12-block-scoped-assignment"
+  current="Computing a value before a conditional, and responding from inside the block: `<-` out of a `?` block, and bindings that outlive it."
+  expected="A binding assigned inside a `?` block to still hold that value afterwards, which is how a default value is written in most languages."
+  why="A `?` block is its own scope. A value bound inside it does not survive it, so `users <- []` followed by `?(fs.exists(f)) { users <- read(f) }` leaves `users` empty and the write that follows silently overwrites the file. Reassigning a binding at the same scope is worse: for a list it emits invalid C++ and codegen fails with `HS0502`."
+  tracked="L-12. Block scoping, v0.10. Guard by responding from inside the block, never by assigning out of it."
+/>
+
+<Limitation
+  id="l-13-top-level-calls-dropped"
+  current="Bindings and declarations at the top level: `store <- \`&lt;path&gt;\``, `model`, routes, `test`."
+  expected="Top-level statements to run, so a program can seed what it needs before serving — `fs.write(store, \`[]\`)` at the top of the file."
+  why="A top-level call is parsed and then dropped: the generated translation unit contains the binding but not the call, with no warning and no error. The only places a call runs are a route body or a test block, which is why a store is seeded by the first request or by a test rather than at startup."
+  tracked="L-13. Top-level statements, v0.10. Seed from a test, or let the first request create the file."
 />
 
 <Limitation

@@ -50,20 +50,21 @@ error — validate before you trust it.
 
 ### Responses
 
-`<-` responds. An object becomes JSON, and the two fields the runtime looks at
-are `status` and `body`:
+`<-` responds. A value becomes the response body:
 
 ```text
-GET "/created" :: {
-    <- { status: 201, body: { id: 1 } }
-}
-
 GET "/ok" :: {
     <- { ok: true }
 }
 ```
 
-Returning a bare object responds with `200` and the object as the body.
+<Limitation
+  id="l-11-body-status-is-not-http-status"
+  current="A response is `200`, with whatever the handler returned as the body."
+  expected="`<- { status: 201 }` answering an HTTP `201 Created`."
+  why="`status` is an ordinary key in the value you returned, and the runtime serialises the value as the body without reading it. Verified: a handler returning `\`&lt;status: 201, user: …\` answers `200`, and a handler that throws answers `500` — so the only way to move the status code today is to fail."
+  tracked="L-11. HTTP status codes, v0.10. Put the code in the body and let a client read it, or return an error and let the runtime produce the 500."
+/>
 
 ## Examples
 
@@ -140,6 +141,7 @@ line, which is why `hard test` output names a line number.
 | `GET "/users" { }` | `HS0002`, `::` is required | `GET "/users" :: { }` |
 | `GET "/users/:id" :: { }` | `id` is not in scope | `:: (id = Str) { }` |
 | `GET "/users" :: (body = User) { }` | A GET with a body is accepted but reads as a mistake | Use `POST` |
+| `<- { status: 404 }` expecting a 404 | Answers `200` with `status` in the body | See [L-11](/docs/limitations#l-11-body-status-is-not-http-status) |
 
 ## Related
 

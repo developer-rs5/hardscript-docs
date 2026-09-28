@@ -69,8 +69,10 @@ GET "/users" :: {
 }
 
 POST "/users" :: (body = User) {
-    created <- { id: body.email, name: body.name }
-    <- { status: 201, user: created }
+    ?(body.email == "") {
+        <- { status: 422, error: "email is required" }
+    }
+    <- { status: 201, user: { id: body.email, name: body.name } }
 }
 ```
 
