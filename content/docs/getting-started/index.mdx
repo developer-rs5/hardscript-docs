@@ -25,15 +25,17 @@ one, [`hard doctor`](/docs/tooling/cli) will say so plainly.
 ### Install the toolchain
 
 ```bash
-git clone https://github.com/developer-rs5/hardscript.git
-cd hardscript
-cargo install --path crates/hard-cli
-hard --version
+git clone https://github.com/developer-rs5/hardscript-1.git
+cd hardscript-1
+cargo install --path cli --locked
+hard doctor
 ```
 
-`hard --version` printing a version number is the only confirmation you need. If
-it cannot find a C++ compiler, continue anyway — `hard build` will tell you at
-the point of failure, and `hard doctor` will tell you in advance.
+The package is `cli` and the binary it installs is `hard`; `--locked` uses the
+committed lockfile. `hard doctor` is the check that matters — it reports g++,
+the runtime and the cache, and prints the exact command it looked for when it
+cannot find something. If you would rather not build from source, the
+[install page](/install) lists every other method and which of them work today.
 
 </Step>
 <Step>

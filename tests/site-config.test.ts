@@ -16,7 +16,7 @@ import { allPages } from "@/lib/docs";
  * would only be a second thing to forget to update — and when it was wrong,
  * this file's own list was wrong at the same moment as the navigation.
  */
-const APP_ROUTES = new Set(["/", "/docs"]);
+const APP_ROUTES = new Set(["/", "/docs", "/install"]);
 
 function isImplemented(href: string): boolean {
   if (APP_ROUTES.has(href)) return true;

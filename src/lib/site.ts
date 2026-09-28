@@ -6,8 +6,11 @@ export const site = {
   description:
     "HardScript is a compiled backend language with a built-in ORM, authentication, cache, queue, scheduler, deployment, package manager, registry and Docker support.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "https://hardscript.org",
-  repo: "https://github.com/hardscript-lang/hard-script",
-  docsRepo: "https://github.com/hardscript-lang/hard-docs",
+  // Both repositories were verified to exist before being written here. A
+  // footer link to a repository that does not exist is worse than no link, and
+  // it is invisible until a reader clicks it.
+  repo: "https://github.com/developer-rs5/hardscript-1",
+  docsRepo: "https://github.com/developer-rs5/hardscript-docs",
   version: "1.0-beta",
   languageVersion: "0.9-alpha",
   install: "curl -fsSL https://hardscript.org/install.sh | sh",
@@ -27,11 +30,7 @@ export type NavEntry = NavItem & { coming?: boolean };
 
 export const nav: NavEntry[] = [
   { title: "Docs", href: "/docs" },
-  // A dedicated /install page is milestone 3. Until then the entry points at
-  // the getting-started page, which opens with installing, because a button
-  // labelled "Install" that 404s is worse than one that takes the reader to the
-  // instructions.
-  { title: "Install", href: "/docs/getting-started" },
+  { title: "Install", href: "/install" },
   { title: "Learn", href: "/learn", coming: true },
   { title: "Playground", href: "/playground", coming: true },
   { title: "Examples", href: "/examples", coming: true },

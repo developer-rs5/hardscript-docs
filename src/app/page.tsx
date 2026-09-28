@@ -40,7 +40,7 @@ export default function HomePage() {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-              <ButtonLink href="/docs/getting-started" size="lg">
+              <ButtonLink href="/install" size="lg">
                 Install
                 <ArrowRight className="size-4" aria-hidden />
               </ButtonLink>
@@ -155,7 +155,7 @@ export default function HomePage() {
           A HardScript program is one file. Bring a module, declare a route, run it.
         </p>
         <div className="mt-8 flex flex-wrap justify-center gap-3">
-          <ButtonLink href="/docs/getting-started" size="lg">
+          <ButtonLink href="/install" size="lg">
             Read the guide
             <ArrowRight className="size-4" aria-hidden />
           </ButtonLink>
