@@ -27,7 +27,11 @@ export type NavEntry = NavItem & { coming?: boolean };
 
 export const nav: NavEntry[] = [
   { title: "Docs", href: "/docs" },
-  { title: "Install", href: "/install" },
+  // A dedicated /install page is milestone 3. Until then the entry points at
+  // the getting-started page, which opens with installing, because a button
+  // labelled "Install" that 404s is worse than one that takes the reader to the
+  // instructions.
+  { title: "Install", href: "/docs/getting-started" },
   { title: "Learn", href: "/learn", coming: true },
   { title: "Playground", href: "/playground", coming: true },
   { title: "Examples", href: "/examples", coming: true },
@@ -45,23 +49,16 @@ export const nav: NavEntry[] = [
 ];
 
 export const footerNav: { title: string; items: NavItem[] }[] = [
-  {
-    title: "Documentation",
-    items: [
-      { title: "Introduction", href: "/docs/introduction" },
-      { title: "Getting started", href: "/docs/getting-started" },
-      { title: "Language reference", href: "/docs/language" },
-      { title: "HTTP server", href: "/docs/http" },
-      { title: "ORM", href: "/docs/orm" },
-      { title: "Authentication", href: "/docs/auth" },
-    ],
-  },
+  // The documentation column is generated from the content tree, in
+  // `src/components/site/footer.tsx`. A hand-written list of documentation
+  // links is a list that rots: it keeps pointing at pages that were renamed,
+  // never written, or deleted, and nobody notices until a reader clicks one.
   {
     title: "Reference",
     items: [
       { title: "CLI reference", href: "/cli" },
       { title: "API reference", href: "/api-reference" },
-      { title: "Error catalog", href: "/docs/errors" },
+      { title: "Error catalog", href: "/docs/errors/catalog" },
       { title: "Runtime internals", href: "/runtime" },
     ],
   },

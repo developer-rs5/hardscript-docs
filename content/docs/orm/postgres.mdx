@@ -1,0 +1,111 @@
+---
+title: PostgreSQL
+description: Connecting to PostgreSQL, running queries, and what the connection string accepts.
+section: ORM
+order: 20
+template: concept
+keywords: [postgres, postgresql, database, query, sql]
+---
+
+`bring postgres` gives you `postgres.connect` and `postgres.query`. A connection
+is a value you bind; a query takes that value and a SQL string.
+
+## Explanation
+
+```text
+db <- postgres.connect("host=127.0.0.1 port=5432 user=postgres dbname=hardscript")
+```
+
+The connection string is libpq's, passed through as written: `host`, `port`,
+`user`, `dbname`, and anything else libpq accepts. Nothing in it is
+HardScript-specific.
+
+`postgres.query` returns the rows. Selecting returns a list of maps, one per
+row, keyed by the column names in the query.
+
+## Syntax
+
+```text
+postgres.connect(connection_string)   a connection value
+postgres.query(db, sql)               rows for a SELECT, nothing for the rest
+```
+
+There is one query function, not a family of them. Insert, update and delete go
+through it with ordinary SQL.
+
+## Examples
+
+The CRUD set, which is the shape most services need:
+
+```hard title=main.hard
+bring http
+
+bring postgres
+
+app @9090
+
+db <- postgres.connect("host=127.0.0.1 port=5432 user=postgres dbname=hardscript")
+
+GET "/users" :: {
+    <- { users: postgres.query(db, "select id, name from users order by id") }
+}
+
+GET "/users/:id" :: (id = Str) {
+    rows <- postgres.query(db, "select id, name from users where id = " + id)
+    <- { users: rows }
+}
+
+POST "/users" :: (body = User) {
+    postgres.query(db, "insert into users (name) values ('" + body.name + "')")
+    <- { status: 201 }
+}
+
+DELETE "/users/:id" :: (id = Str) {
+    postgres.query(db, "delete from users where id = " + id)
+    <- { status: 200 }
+}
+```
+
+## Performance
+
+- One connection is bound at the top level and reused. Connecting per request
+  spends a round trip on every call.
+- A query is one round trip. Three queries in a handler are three round trips,
+  and no amount of local cleverness changes that.
+- `select id, name` is not only smaller on the wire than `select *`; it is the
+  difference between an index-only scan and not one, in many cases.
+
+<Callout kind="warning" title="This example builds SQL by concatenation">
+`"… where id = " + id` interpolates a value straight into the statement. It is
+what the compiler's own example does, and it is fine for an integer that came
+from your own router — but a value that came from a request body is an
+injection risk. The runtime has no parameterised query helper yet, so until it
+does, validate and constrain the value (`?(id == "1") { … }` and a type check)
+before it reaches the string.
+</Callout>
+
+## Best practices
+
+- Bind the connection once, at the top level, next to `app @port`.
+- Name your columns in the `select`. `select *` breaks the day a column is
+  added.
+- Constrain every interpolated value before it reaches the string. Prefer a
+  clause that makes the value a number, since the type checker will then reject
+  anything that is not.
+- Keep the query in the handler and the shape of the result in a `calc`, so the
+  SQL is in one place.
+
+## Common mistakes
+
+| Written | Result | Why |
+| --- | --- | --- |
+| `postgres.query("select …")` | A type error, or no connection | The connection is the first argument |
+| `db <- postgres.connect()` | Missing argument | The connection string is required |
+| `postgres.query(db, "select * from …")` | Works, and returns more than you need | Column names are the contract |
+| Interpolating a body field into SQL | Injection | See the warning above |
+
+## Related
+
+- [Models](/docs/orm/models) — the schema a migration will build
+- [Routes](/docs/http/routes) — where the handler around a query lives
+- [CLI reference](/docs/tooling/cli) — `hard migrate` and `hard seed`

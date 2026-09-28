@@ -40,7 +40,7 @@ export default function HomePage() {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-              <ButtonLink href="/install" size="lg">
+              <ButtonLink href="/docs/getting-started" size="lg">
                 Install
                 <ArrowRight className="size-4" aria-hidden />
               </ButtonLink>

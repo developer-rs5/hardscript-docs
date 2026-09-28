@@ -1,0 +1,104 @@
+---
+title: Introduction
+description: HardScript compiles a statically-typed backend language to a single C++ translation unit and links a native executable, with no runtime to install and no garbage collector in the request path.
+section: Introduction
+order: 0
+template: index
+keywords: [overview, what is hardscript, native, c++, compiler]
+---
+
+HardScript is a language for writing backends: HTTP servers, WebSocket
+endpoints, database access, scheduled work. You write one file, the compiler
+emits a single C++ translation unit, and `hard build` produces a native
+executable. There is no runtime to deploy, no garbage collector in the request
+path, and no virtual machine between your code and the machine.
+
+The compiler is in Rust. It lowers to C++ and shells out to `g++`, which means
+the toolchain is one C++23 compiler away from a build — [`hard doctor`](/docs/tooling/cli)
+checks that assumption rather than you finding out later.
+
+import { Code2, Database, Globe, Rocket } from "lucide-react";
+
+<Grid cols={2}>
+  <Card
+    href="/docs/getting-started"
+    title="Getting started"
+    description="Install the toolchain, write one file with a route and a model, and run it."
+    icon={Rocket}
+  />
+  <Card
+    href="/docs/language/syntax"
+    title="Language"
+    description="Modules, models, bindings, control flow, and the two shapes a model can take."
+    icon={Code2}
+  />
+  <Card
+    href="/docs/http/routes"
+    title="HTTP"
+    description="Routing, path parameters, request bodies, and responses."
+    icon={Globe}
+  />
+  <Card
+    href="/docs/orm/models"
+    title="ORM"
+    description="Models, attributes, indexes, and the SQL behind them."
+    icon={Database}
+  />
+</Grid>
+
+## What a program looks like
+
+A HardScript program is a set of module imports, a model, and some routes. This
+is the whole thing — it compiles, and it serves:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+app @8080
+
+model User = users [
+    id => Int #id,
+    email => Email,
+    name => Str,
+]
+
+GET "/users" :: {
+    <- []
+}
+
+POST "/users" :: (body = User) {
+    created <- { id: body.email, name: body.name }
+    <- { status: 201, user: created }
+}
+```
+
+Four things to notice, because they are the shape of the whole language:
+
+- `bring` imports a module. `http` gives routes, `json` gives parsing.
+- `app @8080` declares the port, once, at the top level.
+- A `model` is a declaration, not a class: a name, a table, and its fields.
+- A route is `VERB "path" :: { }`. The body returns with `<-`, which reads as
+  "respond with" and keeps the last expression from being ambiguous.
+
+## The rest of the surface
+
+| Area | What it covers |
+| --- | --- |
+| [Language](/docs/language/syntax) | Modules, models, values, bindings, control flow, errors |
+| [HTTP](/docs/http/routes) | Routes, path parameters, bodies, WebSockets |
+| [ORM](/docs/orm/models) | Models, attributes, PostgreSQL, SQLite, migrations, seeds |
+| [Runtime](/docs/runtime) | What the compiler emits and what ends up in the binary |
+| [Tooling](/docs/tooling/cli) | The `hard` command, the formatter, and the diagnostic catalog |
+| [Registry](/docs/registry) | `hard.toml`, `hard.lock`, publishing, and package search |
+
+## What the compiler is strict about
+
+Type errors, unknown fields, and malformed routes are all rejected before a
+binary exists. Every diagnostic has a stable code — `HS0001` and upwards — and
+the whole catalog is on one page: [error catalog](/docs/errors/catalog).
+
+The strictness stops at the edges. Values crossing a route boundary are checked
+structurally, and there is more than one way to write a model, which is a wart
+rather than a philosophy: [models](/docs/orm/models) explains it.

@@ -1,0 +1,145 @@
+---
+title: Runtime
+description: What the compiler emits, what ends up in the binary, and where the build cache lives.
+section: Runtime
+order: 0
+template: concept
+keywords: [runtime, codegen, c++, build, cache, native]
+---
+
+HardScript has no runtime to deploy. What "runtime" means here is the C++ that
+the compiler ships with and links into your binary: the HTTP server, the value
+type, the standard-library modules, and the database headers.
+
+## Explanation
+
+`hard build` does four things:
+
+1. Parses and lowers your program to a high-level IR.
+2. Emits **one C++ translation unit** — `.hard/main.cpp`.
+3. Writes the runtime headers next to it — `.hard/hs_runtime_*.hpp`.
+4. Compiles and links them with `g++`, producing `.hard/main`.
+
+Everything except the last step is the compiler. There is no bytecode, no
+bundled interpreter, and nothing to install next to the binary.
+
+## What lands in `.hard/`
+
+| File | What it is |
+| --- | --- |
+| `main.cpp` | The generated translation unit for your program |
+| `hs_runtime_*.hpp` | The runtime headers, all of them, always written |
+| `build.json` | What was built, and from what |
+| `cache/` | The build cache |
+| `main` | The linked executable |
+
+A `hard build` prints its cache line, which is the honest summary of an
+incremental build:
+
+```console
+$ hard build
+cache: 1 hit, 0 miss, 1 skipped, 0 compiled
+built /path/to/.hard/main
+```
+
+`hit` is a dependency unchanged since last time, `miss` is a source that was
+recompiled, and `skipped` is a source the build did not need.
+
+## The headers
+
+The runtime writes these, whether or not the program imports the module — the
+headers are the same set every time, and the linker drops what is unused:
+
+```text
+hs_runtime.hpp          the runtime itself
+hs_runtime_arena.hpp    allocation
+hs_runtime_value.hpp    the dynamic value type
+hs_runtime_http.hpp     the HTTP server
+hs_runtime_orm.hpp      the ORM
+hs_runtime_pgsql.hpp    PostgreSQL
+hs_runtime_postgres.hpp the postgres module
+hs_runtime_sqlite.hpp   SQLite
+hs_runtime_auth.hpp     authentication
+hs_runtime_crypto.hpp   digests and randomness
+hs_runtime_schedule.hpp scheduled work
+hs_runtime_queue.hpp    queues
+hs_runtime_metrics.hpp  metrics
+hs_runtime_migrate.hpp  migrations
+hs_runtime_validation.hpp validation
+```
+
+## Syntax
+
+There is no runtime configuration language. A program is configured by what it
+brings in:
+
+```text
+bring http          the server
+bring json          json.parse, json.stringify
+bring fs            fs.read, fs.write, fs.exists
+bring crypto        digests, randomness
+bring jwt           jwt.sign, jwt.verify
+bring websocket     socket helpers
+bring time          time.now
+bring postgres      postgres.connect, postgres.query
+```
+
+## Examples
+
+`hard doctor` is the shortest way to see what the toolchain found:
+
+```console
+$ hard doctor
+hard doctor — 0.5.0
+  ok g++: g++ (Debian 15.3.0-2) 15.3.0
+  ok gcc: gcc (Debian 15.3.0-2) 15.3.0
+  ok make: GNU Make 4.4.1
+  runtime header: embedded (496203 bytes)
+  compiler version: 0.5.0
+  runtime version: b2b2035c28a3812f
+  cache entries: 1
+```
+
+The runtime version is a separate commit from the compiler version, which is
+worth knowing when a bug reproduces in one and not the other: quote both.
+
+## Performance
+
+- The build cache is keyed on the source and its dependencies, so a second build
+  of an unchanged program compiles nothing. The cache line is how you check.
+- One translation unit means one `g++` invocation. There is no per-module link
+  step to slow down a large program.
+- `hard build` is a development build. `hard bench` release-builds and reports
+  timings, and those are the only numbers worth quoting — see
+  [benchmarks](/docs/tooling/cli).
+
+<Callout kind="note" title="No garbage collector in the request path">
+The value type is a tagged union over arena-allocated data, and the arena is
+per-request. A request frees its arena when it returns rather than leaving
+reclamation to a background collector, so a slow request slows itself down and
+not its neighbours. There is no pause to tune, and no way to trigger one.
+</Callout>
+
+## Best practices
+
+- Read the cache line on every build. `0 miss` means nothing recompiled, which
+  is the state a working build cache should be in.
+- Keep `.hard/` out of version control. It is build output, and it is large.
+- Quote both versions — compiler and runtime — in a bug report.
+- Measure with `hard bench`, and report the compiler version alongside the
+  number, or the number means nothing.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| Committing `.hard/` | A repository that is mostly build output | Add it to `.gitignore` |
+| Running the binary from another machine | It is a native executable | Build where you run it |
+| Comparing timings from `hard build` | Development build, so slower | `hard bench` |
+| Expecting `hard run` to stay in the foreground | It does, until the port is taken | Check `app @port` |
+
+## Related
+
+- [CLI reference](/docs/tooling/cli) — `hard build`, `hard bench`, `hard doctor`
+- [Tooling](/docs/tooling) — the formatter and diagnostics
+- [Syntax](/docs/language/syntax) — the `bring` list a program is built from

@@ -1,0 +1,124 @@
+---
+title: Models
+description: Declaring a table and its fields, the two forms the parser accepts, and the attribute syntax that differs between them.
+section: ORM
+order: 10
+template: concept
+keywords: [model, orm, schema, attributes, migration, table]
+---
+
+A model is a name, a table, and a list of fields. It is a declaration, not a
+class: nothing is instantiated, and the fields are the schema the ORM and the
+migration tools read.
+
+## Explanation
+
+The parser accepts **two** forms for the same declaration. They are not
+interchangeable, and the difference is the sharpest edge in the language.
+
+```text
+model User = users [          the bracket form
+    id => Int #id,
+    email => Email,
+]
+```
+
+```text
+model User {                 the brace form
+    id : Int @id,
+    email : Email,
+}
+```
+
+| | Bracket form | Brace form |
+| --- | --- | --- |
+| Table name | Explicit: `= users` | Defaults to the model name, lowercased |
+| Field | `field => Type` | `field : Type` |
+| Field separator | Comma | Newline |
+| Attribute | `#id`, `#unique` | `@id`, `@unique` |
+| Optional marker | Not accepted | `?` |
+| Default value | Not accepted | `= value` |
+
+<Limitation
+  id="l-08-model-attribute-forms"
+  current="The bracket form with `#attr`: `model User = users [ id => Int #id ]`."
+  expected="One attribute syntax across both forms, and the same attributes on either."
+  why="The bracket form was the original blueprint syntax; the brace form arrived later with `@attr`. Each parser branch accepts only the marker its own form was written with, so `#id` inside a brace model and `@id` inside a bracket model are both `HS0001`."
+  tracked="L-08. Model syntax unification, v0.10. Write the bracket form — it is what the compiler's own examples, the generated SQL and the tooling use."
+/>
+
+## Syntax
+
+```text
+model Name = table_name [
+    field => Type #attr,
+    other => Type,
+]
+```
+
+Field types seen in models: `Int`, `Str`, `Float`, `Bool`, `Email`. A field type
+is a name, so anything the ORM recognises can appear here.
+
+## Examples
+
+A model with a primary key, a unique constraint, and a timestamp — the bracket
+form, which is the one to write:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+app @8080
+
+model User = users [
+    id => Int #id,
+    email => Email #unique,
+    name => Str,
+    active => Bool,
+    score => Float,
+    created => Int #created,
+]
+
+GET "/users" :: {
+    <- []
+}
+```
+
+## Performance
+
+- A model is a schema, not code. Declaring one costs nothing at runtime, and no
+  table is created until a migration runs.
+- Field types are checked when the model is used, so a mismatch is a compile
+  error rather than a query that returns nothing.
+- Index attributes (`#id`, `#unique`, `#created`) describe the table the
+  migration will build. They do not slow anything down; leaving them off makes
+  every lookup a scan.
+
+## Best practices
+
+- Always give `#id`. It is how a row is addressed, and a model without one cannot
+  be the target of a lookup by key.
+- Mark anything you will look up by `#unique` if it must not repeat, and
+  understand that `#unique` is a constraint and not an index unless the
+  migration creates both.
+- Name the table in the bracket form, even when it matches the model name. The
+  explicit form survives a rename.
+- Keep types honest. `created => Int #created` is a Unix timestamp, and
+  storing a formatted date in it makes every comparison a string comparison.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| `model User = users [ id => Int @id ]` | `@` is not accepted here | `id => Int #id` |
+| `model User { id : Int #id }` | `#` is not accepted here | `id : Int @id` |
+| `model User = users [ id => Int ]` | No key: nothing can address a row | Add `#id` |
+| `model users` | Lowercase, and no table name | `model User = users [ … ]` |
+| `model User = users [ id => Int, name => Str name => Str ]` | A missing comma between fields | Fields are comma-separated |
+
+## Related
+
+- [PostgreSQL](/docs/orm/postgres) — connecting and querying
+- [Syntax](/docs/language/syntax) — where a model sits in a program
+- [Error catalog](/docs/errors/catalog) — the codes these produce

@@ -1,0 +1,126 @@
+---
+title: Errors
+description: How a HardScript program fails, what the compiler checks, and how to read a diagnostic.
+section: Language
+order: 50
+template: concept
+keywords: [errors, diagnostics, HS0001, HS0002, HS0104, compile errors]
+---
+
+A HardScript program either compiles or it does not. There is no runtime
+class hierarchy, no `try`, and no error code to check: the failure modes that
+are visible to a caller are values in the response, and everything else is a
+diagnostic at build time.
+
+## Explanation
+
+Every diagnostic has a stable code, in reserved ranges:
+
+| Range | What lives there |
+| --- | --- |
+| `HS00xx` | Lexer and parser |
+| `HS01xx` | Names, bindings and types |
+| `HS02xx` | Semantics: routes, models, middleware |
+| `HS03xx` | Codegen and the emitted program |
+
+The full list, generated from the compiler, is on one page:
+[error catalog](/docs/errors/catalog).
+
+A diagnostic names the code, the line, and — when the compiler can offer one —
+a fix in prose:
+
+```console
+$ hard build main.hard
+error[HS0002]: expected an identifier as a parameter name
+   --> /path/main.hard:8:13
+    |
+  8 | calc greet(n) {
+    |             ^
+    |
+    = The parser found a token it did not expect in this position.
+help: expected a parameter name
+```
+
+The `help:` line is part of the diagnostic, not a footnote. It is the
+difference between a compiler that tells you what is wrong and one that tells
+you what to do.
+
+## Syntax
+
+`return` is not defined. A function or route body returns with `<-`:
+
+```text
+calc double(Int n) => Int {
+    return n * 2
+}
+```
+
+That program is `HS0104`: ``return` is not defined`. The body is written with
+`<-` instead — see [functions](/docs/language/functions) and
+[values](/docs/language/values).
+
+## Examples
+
+Two diagnostics from the same program, and what each one is really about:
+
+```console
+$ hard build broken.hard
+error[HS0002]: expected a value
+   --> /path/broken.hard:3:11
+    |
+  3 | bring http/json
+    |           ^
+    |
+    = The parser reached a point where a specific token had to appear, but found something else instead.
+help: module names are flat: `bring http`, `bring json`
+```
+
+```console
+$ hard build missing.hard
+error[HS0001]: unexpected closing `}`
+   --> /path/missing.hard:14:1
+    |
+ 14 | }
+    | ^
+    |
+    = The parser found a token it did not expect in this position.
+help: Remove the extra `}` or close the block where it belongs.
+```
+
+The first is a wrong name. The second is a block that was opened and never
+closed, which the parser only notices at the end — so the line it points at is
+the last line of the file, not the line you want. Read the code as "something
+earlier is unbalanced".
+
+## Performance
+
+Diagnostics are not a build cost worth optimising: parsing is milliseconds
+against a `g++` invocation measured in seconds. The one performance rule that
+does apply is to read `HS00xx` and `HS01xx` first, because a name error
+cascades — fixing one produces the next, and reading the last error in a build
+log wastes the pass.
+
+## Best practices
+
+- Build after every edit. The compile is fast and the diagnostics point at
+  lines.
+- Read the first error, not the last. Later ones are often consequences.
+- Quote the code, not the diagnostic, in a bug report. Include the `help:` line
+  so the reader knows what the compiler expected.
+- Test the failure path. A 404 with a test is worth more than a 200 without one.
+
+## Common mistakes
+
+| Written | Diagnostic | Write instead |
+| --- | --- | --- |
+| `return x` in a body | `HS0104` | `<- x` |
+| `bring http/json` | `HS0002` | `bring json` |
+| `if x { }` | `HS0001` | `?(x) { }` |
+| `else` | `HS0001` | A second `?` block |
+| `fn f(x) { }` | `HS0002` | `calc f(Type x) { }` |
+
+## Related
+
+- [Error catalog](/docs/errors/catalog) — every code, with a bad example
+- [CLI reference](/docs/tooling/cli) — `hard errors`, `hard doctor`
+- [Syntax](/docs/language/syntax) — the forms that produce these

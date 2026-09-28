@@ -1,0 +1,171 @@
+---
+title: Control flow
+description: Conditionals, loops, and how to return early when there is no else and no break.
+section: Language
+order: 30
+template: concept
+keywords: [if, conditional, loop, break, early return, control flow]
+---
+
+HardScript has two control-flow forms: a conditional, `?( ) { }`, and a loop,
+`loop`. That is the whole set. Everything else people reach for — `else`,
+`else if`, `while`, `for`, `break`, `continue` — is not in the parser.
+
+## Explanation
+
+<Limitation
+  id="l-01-no-else"
+  current="A `?` block, and execution continues after it when the test does not match."
+  expected="`?(x) { … } else { … }`, and `else if` for a third arm."
+  why="The parser has one conditional production — a test and a single block — so there is no else production to reach and `else` arrives as an unexpected token."
+  tracked="L-01. Conditional completeness, v0.10. One `?` block per case; each one responds, which is the exit."
+/>
+
+<Limitation
+  id="l-02-while-and-for"
+  current="`loop item => collection { }` for a collection, and `loop i => 0..n { }` for a count."
+  expected="`while (cond) { }` and `for item in collection { }`."
+  why="`loop` is the only iteration form the parser has. `while` and `for` are lexed as keywords and then rejected, and there is no `break` either."
+  tracked="L-02. Iteration forms, v0.10. A range covers the counting case; the searching case exits by responding from inside the loop."
+/>
+
+The consequence is one design rule, and it is worth internalising: **compute the
+value, then respond once.** A route has exactly one exit, and reaching it early
+from inside a loop is how you exit early.
+
+## Syntax
+
+### A conditional
+
+```text
+GET "/x" :: {
+    ?(condition) {
+        <- { … }
+    }
+    <- { … }
+}
+```
+
+A `?` block is a statement, so it can appear anywhere in a body, and it nests.
+Reading a map key safely looks like this:
+
+```text
+user <- { name: "ada" }
+name <- user.name
+?(name != null) {
+    <- { name: name }
+}
+<- { error: "no name" }
+```
+
+### A loop
+
+```text
+loop item => items {
+    …
+}
+```
+
+The binding on the left is the element, the expression on the right is the
+collection. Lists, maps and ranges all iterate. A range is the way to count
+without building a list:
+
+```text
+loop i => 0..10 {
+    …
+}
+```
+
+### Early exit
+
+Respond from inside the loop. The `<-` ends the route, so the code after the
+loop only runs when nothing inside it responded.
+
+## Examples
+
+Finding a user in a list and returning the moment it is found:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+app @8080
+
+GET "/users/:id" :: (id = Str) {
+    users <- [{ id: "1", name: "Ada" }, { id: "2", name: "Grace" }]
+    loop user => users {
+        ?(user.id == id) {
+            <- { user: user }
+        }
+    }
+    <- { status: 404, error: "user not found" }
+}
+
+test "an unknown id is a 404" {
+    res <- GET "/users/nope"
+    expect res.body.status == 404
+}
+```
+
+The same shape handles a guard clause, which is the other half of having no
+`else`:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+app @8080
+
+POST "/users" :: (body = User) {
+    ?(body.email == "") {
+        <- { status: 422, error: "email is required" }
+    }
+    ?(body.name == "") {
+        <- { status: 422, error: "name is required" }
+    }
+    <- { status: 201, user: body }
+}
+```
+
+## Performance
+
+- A `loop` walks its collection in order and cannot break out of the walk. When
+  a handler responds from inside the loop, the rest of the iteration is
+  unreachable, but the compiler still emits the full loop — so for a large
+  collection, filter while building rather than searching in place.
+- `?( )` blocks cost a comparison. Two guards on a hot path are two branches;
+  three or four usually means a lookup would be cheaper.
+- A range loop emits a counted loop with no allocation. `loop i => 0..n` is the
+  cheapest way to repeat something a known number of times.
+
+## Best practices
+
+- One exit per route. Collect what you need, then respond at the end, unless
+  there is a genuine guard to reject early.
+- Guard clauses in order of how likely they are to fire. The first check is the
+  one most requests will take.
+- Name the loop binding for its role: `loop user => users`, not `loop u => x`.
+- Reach for a range before building a list of indices.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| `if x { }` | `HS0001` | `?(x) { }` |
+| `?(x) { } else { }` | `HS0001` | A second `?` block, or two exits |
+| `while (i < 3) { }` | `HS0001` | `loop i => 0..3 { }` |
+| `for x => xs { }` | `HS0001` | `loop x => xs { }` |
+| `break` | `HS0001` | Respond from inside the loop |
+
+The one that bites hardest is `else`. A two-armed branch reads better, and the
+rewrite is mechanical: the "then" arm responds, the "otherwise" arm responds,
+and both sit in the body.
+
+## Related
+
+- [Values](/docs/language/values) — comparisons and the operators above
+- [Syntax](/docs/language/syntax) — `<-` as both a binding and a return
+- [Routes](/docs/http/routes) — where early exit is used most
+- [Error catalog](/docs/errors/catalog) — what `HS0001` says about each case

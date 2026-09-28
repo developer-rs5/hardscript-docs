@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
 /** The routes that exist today. Everything else arrives with its milestone. */
 const LINKS = [
   { title: "Docs", href: "/docs" },
-  { title: "Install", href: "/install" },
+  // Not /install yet: that page is milestone 3. The getting-started page opens
+  // with installing the toolchain, so the button leads somewhere real.
+  { title: "Install", href: "/docs/getting-started" },
 ];
 
 export function Navbar() {
@@ -61,7 +63,7 @@ export function Navbar() {
           </a>
           <ThemeToggle />
           <Link
-            href="/install"
+            href="/docs/getting-started"
             className="hidden h-8 items-center rounded-lg bg-[var(--accent)] px-3 text-[13px] font-medium text-white sm:inline-flex"
           >
             Install

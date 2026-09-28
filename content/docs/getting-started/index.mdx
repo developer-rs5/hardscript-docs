@@ -1,0 +1,187 @@
+---
+title: Getting started
+description: Install the toolchain, write one file with a route and a model, run it, and call it.
+section: Getting started
+order: 0
+template: guide
+keywords: [install, quickstart, first program, tutorial]
+---
+
+This is the shortest path from nothing to a running server. It assumes a C++23
+compiler is installed, because HardScript links with `g++` — if you do not have
+one, [`hard doctor`](/docs/tooling/cli) will say so plainly.
+
+## Prerequisites
+
+- A C++23 compiler (`g++` 13 or newer, or `clang++` 17 or newer)
+- `git`, if you intend to use the registry
+- About two minutes
+
+## Steps
+
+<Steps>
+<Step>
+
+### Install the toolchain
+
+```bash
+git clone https://github.com/developer-rs5/hardscript.git
+cd hardscript
+cargo install --path crates/hard-cli
+hard --version
+```
+
+`hard --version` printing a version number is the only confirmation you need. If
+it cannot find a C++ compiler, continue anyway — `hard build` will tell you at
+the point of failure, and `hard doctor` will tell you in advance.
+
+</Step>
+<Step>
+
+### Create a project
+
+```bash
+hard new hello
+cd hello
+```
+
+`hard new` writes `main.hard`, a `hard.toml` manifest, and a `.gitignore`. The
+project layout is deliberately flat: one source file, one manifest.
+
+</Step>
+<Step>
+
+### Write a route
+
+Replace `main.hard` with this. It is the program on the [introduction](/docs/introduction)
+page, with a store added so the data survives a restart:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+bring fs
+
+app @8080
+
+model User = users [
+    id => Int #id,
+    email => Email,
+    name => Str,
+]
+
+store <- ".hard/users.json"
+
+GET "/users" :: {
+    ?(fs.exists(store)) {
+        <- json.parse(fs.read(store))
+    }
+    <- []
+}
+
+POST "/users" :: (body = User) {
+    users <- json.parse(fs.read(store))
+    created <- { id: body.email, name: body.name }
+    fs.write(store, json.stringify(users + [created]))
+    <- { status: 201, user: created }
+}
+```
+
+</Step>
+<Step>
+
+### Run it
+
+```bash
+hard run
+```
+
+The server binds to port 8080. A `hard run` build is a development build: it
+compiles with the cache on and without release optimisation. For timings that
+mean something, use [`hard bench`](/docs/tooling/cli).
+
+</Step>
+<Step>
+
+### Call it
+
+```console
+$ curl -s localhost:8080/users
+[]
+$ curl -s -X POST localhost:8080/users \
+    -H 'content-type: application/json' \
+    -d '{"email":"ada@example.com","name":"Ada"}'
+{"status":201,"user":{"id":"ada@example.com","name":"Ada"}}
+$ curl -s localhost:8080/users
+[{"id":"ada@example.com","name":"Ada"}]
+```
+
+</Step>
+</Steps>
+
+## Verify
+
+Add a test to the same file and run it. Tests live next to the code they
+describe, and they call routes the way a client would:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+bring fs
+
+app @8080
+
+model User = users [
+    id => Int #id,
+    email => Email,
+    name => Str,
+]
+
+store <- ".hard/users.json"
+
+POST "/users" :: (body = User) {
+    created <- { id: body.email, name: body.name }
+    <- { status: 201, user: created }
+}
+
+test "a created user comes back" {
+    created <- POST "/users" { { email: "grace@example.com", name: "Grace" } }
+    expect created.body.status == 201
+    expect created.body.user.name == "Grace"
+}
+```
+
+```console
+$ hard test
+running .hard/main
+
+HardScript test run
+==================
+  ok   expect created.body.status == 201
+  ok   expect created.body.user.name == "Grace"
+
+==================
+2 passed, 0 failed
+```
+
+A test that passes means the route built, the body parsed, and the response
+shaped as expected — `hard test` compiles before it runs anything.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `g++: command not found` | No C++ compiler on `PATH` | Install one, or run `hard doctor` for the exact command it looked for |
+| `error[HS0002]` on a route | The path is unquoted, or the `::` is missing | Routes are `GET "/path" :: { }` |
+| Port already in use | Another process holds 8080 | Change `app @8080` and call the new port |
+| `main.hard not found` | You are one directory too high | Files default to `main.hard` in the current directory |
+
+## Related
+
+- [Language syntax](/docs/language/syntax) — how a program is put together
+- [Routes](/docs/http/routes) — path parameters and request bodies
+- [Models](/docs/orm/models) — the field syntax, and the two forms it takes
+- [CLI reference](/docs/tooling/cli) — every `hard` command

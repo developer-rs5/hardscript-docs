@@ -1,0 +1,103 @@
+---
+title: Registry
+description: hard.toml, hard.lock, the shared cache, publishing, and package search.
+section: Registry
+order: 0
+template: concept
+keywords: [registry, packages, publish, hard.toml, hard.lock, cache]
+---
+
+HardScript has a package registry with the model most ecosystems converge on:
+declare in `hard.toml`, pin in `hard.lock`, cache in one shared directory.
+
+## Explanation
+
+```text
+hard.toml    [dependencies] you write
+hard.lock    the resolution you committed
+$HOME/.hard/cache   one copy of every package on the machine
+```
+
+The manifest is the intent, the lockfile is the resolution, and the cache is
+content. A build reads the lockfile and takes code from the cache, so two
+machines that commit the same lockfile resolve identically.
+
+## Syntax
+
+Dependencies go in a `[dependencies]` table:
+
+```toml
+[dependencies]
+```
+
+`hard add <pkg>[@<req>]` adds a dependency and installs it, writing both files.
+`hard install` resolves everything already declared, `hard update [pkg]` moves
+to the newest matching release, and `hard remove <pkg>` takes one out.
+
+`hard search <q>` and `hard info <pkg>` query the registry. Both need network
+access; offline they fail with a resolver error rather than hanging.
+
+## Examples
+
+The command sequence a new project goes through:
+
+```console
+$ hard add json
+added json to hard.toml
+resolved 1 package
+wrote hard.lock
+$ hard list
+json 0.1.0
+$ hard outdated
+json 0.1.0 -> 0.2.0
+$ hard update json
+updated json 0.1.0 -> 0.2.0
+$ hard cache info
+```
+
+Publishing is a build and a push:
+
+```console
+$ hard publish
+built mylib-0.1.0.hspkg
+published mylib 0.1.0
+```
+
+`hard yank <pkg>[@<ver>]` retracts a release, and `hard download` fetches an
+archive without installing it. Credentials come from `hard register`,
+`hard login` and `hard token`; `hard whoami` says whose token is stored, which
+is the command to run first when a push fails.
+
+## Performance
+
+- The cache is shared across projects, so a dependency is downloaded once per
+  machine rather than once per project. `hard cache verify` is how you find out
+  whether it is still consistent.
+- A resolved lockfile makes resolution a no-op, so `hard install` on a warm
+  cache is a directory walk.
+- `hard cache clean` throws that away, and the next install pays the network
+  for it. Clean when a build is failing on a stale entry, not on a schedule.
+
+## Best practices
+
+- Commit `hard.lock`. It is the resolution your builds actually use.
+- Never edit `hard.lock` by hand. Run `hard update` and commit the result.
+- Use `hard cache verify` in CI. It is faster than discovering a corrupt entry
+  through a failed build.
+- Publish from a clean tree. A `.hspkg` is built from the working directory,
+  including anything that should not ship.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| Hand-editing `hard.lock` | A resolution nobody produced | `hard update`, then commit |
+| `hard add` on every machine | The lockfile churns | Add once, commit, share |
+| Running the registry commands offline | A resolver error | Warm the cache, or run with network |
+| Publishing a dirty tree | Whatever is in the directory ships | Commit or clean first |
+
+## Related
+
+- [CLI reference](/docs/tooling/cli) — every registry command
+- [Runtime](/docs/runtime) — where the cache lives
+- [Tooling](/docs/tooling) — the commands around the package commands

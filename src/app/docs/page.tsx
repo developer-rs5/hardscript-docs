@@ -1,87 +1,72 @@
-import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import type { Metadata } from "next";
+import { ArrowRight, BookOpen } from "lucide-react";
+import { docSections } from "@/lib/docs";
 
 export const metadata: Metadata = {
-  title: "Documentation",
-  description: "Learn HardScript from the language reference to a deployed API.",
+  title: "Documentation — HardScript",
+  description:
+    "The HardScript documentation: language, HTTP, ORM, runtime, tooling, the registry, and every compiler diagnostic.",
   alternates: { canonical: "/docs" },
 };
 
-/** The first slice of the tree. The full tree arrives with the docs engine. */
-const SECTIONS = [
-  {
-    title: "Introduction",
-    href: "/docs/introduction",
-    body: "What HardScript is, what it compiles to, and the shape of a program.",
-    status: "next" as const,
-  },
-  {
-    title: "Getting started",
-    href: "/docs/getting-started",
-    body: "Install, write one file, run it, and understand what the compiler did.",
-    status: "next" as const,
-  },
-  {
-    title: "Language reference",
-    href: "/docs/language",
-    body: "Variables, functions, control flow, errors, async, modules.",
-    status: "planned" as const,
-  },
-  {
-    title: "HTTP server",
-    href: "/docs/http",
-    body: "Routes, middleware, validation, cookies, streaming, WebSockets.",
-    status: "planned" as const,
-  },
-  {
-    title: "ORM",
-    href: "/docs/orm",
-    body: "Models, relationships, transactions, batches, migrations.",
-    status: "planned" as const,
-  },
-];
-
+/**
+ * The documentation index.
+ *
+ * Generated from the content tree rather than written by hand, so a page that
+ * is added shows up here and a page that is deleted disappears. The count is
+ * the real one, and it moves when the tree does.
+ */
 export default function DocsIndex() {
+  const sections = docSections();
+  const pages = sections.reduce((n, s) => n + s.pages.length + (s.index ? 1 : 0), 0);
   return (
-    <div className="mx-auto max-w-4xl px-5 py-16">
-      <h1 className="text-3xl font-semibold tracking-[-0.02em]">Documentation</h1>
-      <p className="mt-3 max-w-2xl text-[var(--ink-muted)]">
-        The documentation is generated from the compiler and validated on every build, so
-        a page cannot drift away from the language it describes.
-      </p>
+    <div className="mx-auto w-full max-w-[1000px] py-12">
+      <header className="mb-12">
+        <p className="mb-3 font-mono text-[12px] uppercase tracking-[0.14em] text-[var(--accent)]">
+          Documentation
+        </p>
+        <h1 className="text-[36px] font-semibold leading-[1.1] tracking-[-0.025em] sm:text-[44px]">
+          HardScript, documented
+        </h1>
+        <p className="mt-5 max-w-[60ch] text-[16.5px] leading-[1.7] text-[var(--ink-muted)]">
+          {pages} pages, and every HardScript snippet on this site is compiled by the
+          real compiler when the site builds. Where the compiler and the language
+          disagree, the page says so.
+        </p>
+      </header>
 
-      <ul className="mt-10 space-y-3">
-        {SECTIONS.map((s) => (
-          <li key={s.href}>
-            {s.status === "next" ? (
+      <ul className="space-y-2">
+        {sections.map((s) => {
+          const count = s.pages.length + (s.index ? 1 : 0);
+          return (
+            <li key={s.slug}>
               <Link
-                href={s.href}
-                className="group flex items-start justify-between gap-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-5 transition-colors hover:border-[var(--accent)]/40"
+                href={s.index?.slug ?? s.pages[0]?.slug ?? "/docs"}
+                className="group grid gap-1.5 rounded-xl border border-[var(--line)] p-5 transition-colors hover:border-[var(--line-strong)] sm:grid-cols-[1fr_auto] sm:items-center sm:gap-6"
               >
                 <span>
-                  <span className="flex items-center gap-2 text-[15px] font-semibold">
-                    {s.title}
-                    <Badge tone="accent">writing now</Badge>
+                  <span className="flex items-center gap-2 text-[17px] font-medium tracking-[-0.01em]">
+                    <BookOpen className="size-4 text-[var(--accent)]" aria-hidden />
+                    {s.index?.title ?? s.title}
                   </span>
-                  <span className="mt-1.5 block text-sm text-[var(--ink-muted)]">{s.body}</span>
+                  <span className="mt-1.5 block text-[14.5px] leading-[1.6] text-[var(--ink-muted)]">
+                    {s.blurb}
+                  </span>
                 </span>
-                <ArrowRight className="mt-1 size-4 shrink-0 text-[var(--ink-subtle)] transition-transform group-hover:translate-x-0.5" aria-hidden />
+                <span className="flex items-center gap-3 sm:justify-end">
+                  <span className="font-mono text-[12px] text-[var(--ink-subtle)]">
+                    {count} {count === 1 ? "page" : "pages"}
+                  </span>
+                  <ArrowRight
+                    className="size-4 text-[var(--ink-subtle)] transition-transform group-hover:translate-x-0.5"
+                    aria-hidden
+                  />
+                </span>
               </Link>
-            ) : (
-              <div className="flex items-start justify-between gap-4 rounded-xl border border-[var(--line)] p-5 opacity-70">
-                <span>
-                  <span className="flex items-center gap-2 text-[15px] font-semibold">
-                    {s.title}
-                    <Badge>planned</Badge>
-                  </span>
-                  <span className="mt-1.5 block text-sm text-[var(--ink-muted)]">{s.body}</span>
-                </span>
-              </div>
-            )}
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

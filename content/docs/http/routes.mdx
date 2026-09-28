@@ -1,0 +1,149 @@
+---
+title: Routes
+description: Verbs, path parameters, request bodies, responses, and how to call a route from a test.
+section: HTTP
+order: 10
+template: concept
+keywords: [routes, routing, path parameters, body, response]
+---
+
+A route is three things: a verb, a quoted path, and a block. The parameters the
+block can read are declared in parentheses between the path and the block.
+
+## Explanation
+
+```text
+GET "/users" :: { … }
+GET "/users/:id" :: (id = Str) { … }
+POST "/users" :: (body = User) { … }
+PUT "/users/:id" :: (id = Str, body = User) { … }
+DELETE "/users/:id" :: (id = Str) { … }
+```
+
+Five verbs are recognised: `GET`, `POST`, `PUT`, `DELETE`, `PATCH`.
+
+- A `:name` segment in the path becomes a parameter. The name must appear in
+  the parameter list, or the path segment is a literal colon.
+- A parameter named `body` is the request body. Its type is the model you
+  expect: `(body = User)`.
+- Parameters are `name = Type`, which is the opposite order to a `calc`
+  parameter. That inconsistency is a parser gap, not a convention — see
+  [functions](/docs/language/functions).
+
+## Syntax
+
+### Path parameters
+
+A path segment beginning with `:` is a parameter, and it captures until the
+next `/`:
+
+```text
+GET "/users/:id" :: (id = Str) { … }
+GET "/orgs/:org/users/:id" :: (org = Str, id = Str) { … }
+```
+
+### Request bodies
+
+`(body = Model)` reads the parsed JSON body as that model. The body arrives as a
+map, so reading a field the client did not send yields `null` rather than an
+error — validate before you trust it.
+
+### Responses
+
+`<-` responds. An object becomes JSON, and the two fields the runtime looks at
+are `status` and `body`:
+
+```text
+GET "/created" :: {
+    <- { status: 201, body: { id: 1 } }
+}
+
+GET "/ok" :: {
+    <- { ok: true }
+}
+```
+
+Returning a bare object responds with `200` and the object as the body.
+
+## Examples
+
+A small resource with the three shapes you need — a collection, an item, and a
+create:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+app @8080
+
+model User = users [
+    id => Int #id,
+    email => Email,
+    name => Str,
+]
+
+GET "/users" :: {
+    <- []
+}
+
+GET "/users/:id" :: (id = Str) {
+    ?(id == "1") {
+        <- { user: { id: "1", name: "Ada" } }
+    }
+    <- { status: 404, error: "user not found" }
+}
+
+POST "/users" :: (body = User) {
+    ?(body.email == "") {
+        <- { status: 422, error: "email is required" }
+    }
+    <- { status: 201, user: { id: "1", name: body.name } }
+}
+
+test "an unknown user is a 404" {
+    missing <- GET "/users/99"
+    expect missing.body.status == 404
+}
+```
+
+A test calls a route with the same syntax as a client: the verb, the path, and
+the body as an object. `expect` checks a value; a failure prints the file and
+line, which is why `hard test` output names a line number.
+
+## Performance
+
+- The routing table is the file. There is no runtime trie to build, and no
+  per-request regex compilation.
+- Handlers are ordinary code with ordinary cost. The measurement to take is on
+  the work inside the handler.
+- A `:param` segment is a prefix comparison, not a regex. Adding parameters
+  costs a comparison per parameter, not a match.
+- Respond from inside a loop rather than collecting into a list and responding
+  at the end, when the answer is usually the first match — but note the loop
+  still walks the collection.
+
+## Best practices
+
+- One verb per path, and put the verb in the HTTP verb. `POST /users` to create,
+  `PUT /users/:id` to replace.
+- Answer 404 for a missing resource and 422 for a body that failed validation.
+  They are different problems and a client handles them differently.
+- Name the parameter after what it selects, so the handler reads as a lookup.
+- Test the failure path. A 404 with a test is worth more than a 200 without one.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| `GET /users :: { }` | `HS0002` | `GET "/users" :: { }` |
+| `GET "/users" { }` | `HS0002`, `::` is required | `GET "/users" :: { }` |
+| `GET "/users/:id" :: { }` | `id` is not in scope | `:: (id = Str) { }` |
+| `GET "/users" :: (body = User) { }` | A GET with a body is accepted but reads as a mistake | Use `POST` |
+
+## Related
+
+- [Control flow](/docs/language/control-flow) — one exit per route
+- [Syntax](/docs/language/syntax) — routes as a top-level form
+- [WebSockets](/docs/http/websockets) — the upgrade path
+- [Models](/docs/orm/models) — what a body type refers to

@@ -1,0 +1,62 @@
+---
+title: Tooling
+description: The hard command, the formatter, the build cache, and the diagnostic catalog.
+section: Tooling
+order: 0
+template: index
+keywords: [tooling, cli, fmt, doctor, errors]
+---
+
+Everything the compiler does is `hard`. There is no plugin system and no
+configuration file to find: a program either works with the defaults, or the
+diagnostic says why not.
+
+import { AlertTriangle, Terminal } from "lucide-react";
+
+<Grid cols={2}>
+  <Card
+    href="/docs/tooling/cli"
+    title="CLI reference"
+    description="Every command, with the flags the help text actually lists."
+    icon={Terminal}
+  />
+  <Card
+    href="/docs/errors/catalog"
+    title="Error catalog"
+    description="All 75 diagnostics, generated from the compiler."
+    icon={AlertTriangle}
+  />
+</Grid>
+
+## The commands you will actually reach for
+
+| Command | What it does |
+| --- | --- |
+| `hard build` | Compile to `.hard/<name>` |
+| `hard run` | Build and start the server |
+| `hard test` | Build, then run the `test` blocks |
+| `hard fmt` | Reformat a file in place |
+| `hard fmt --check` | Report whether a file is already formatted |
+| `hard doctor` | Check the toolchain: `g++`, the runtime, the cache |
+| `hard errors` | Print the diagnostic catalog (`--markdown` for the docs) |
+| `hard bench` | Release-build and report timings |
+
+## The one that matters in CI
+
+`hard fmt --check` is a single command that either passes or does not, so it
+belongs in a pipeline:
+
+```console
+$ hard fmt --check main.hard
+main.hard is formatted correctly
+```
+
+A file that is not formatted says so and names itself:
+
+```console
+$ hard fmt --check other.hard
+other.hard is not formatted (run `hard fmt`)
+```
+
+The [CLI reference](/docs/tooling/cli) has the full list, and the
+[error catalog](/docs/errors/catalog) has every diagnostic.

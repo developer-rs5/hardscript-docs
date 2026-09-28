@@ -17,16 +17,20 @@
     "links:check": "tsx scripts/check-links.ts",
     "qa:links": "npm run search:build && npm run docs:validate && npm run links:check",
     "reports": "tsx scripts/generate-reports.ts",
-    "bench:extract": "tsx scripts/extract-benchmarks.ts"
+    "bench:extract": "tsx scripts/extract-benchmarks.ts",
+    "docs:errors": "tsx scripts/generate-errors.ts",
+    "verify": "npm run lint && npm run typecheck && npm run docs:format:check && npm run docs:validate && npm run build && npm test",
+    "docs:format": "tsx scripts/format-content.ts",
+    "docs:format:check": "tsx scripts/format-content.ts --check"
   },
   "dependencies": {
     "@mdx-js/loader": "3.1.1",
     "@mdx-js/react": "3.1.1",
-    "@next/mdx": "16.3.6",
     "clsx": "2.1.1",
     "framer-motion": "13.4.4",
     "lucide-react": "1.48.0",
     "next": "16.3.6",
+    "next-mdx-remote": "^6.0.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "recharts": "3.10.1",
@@ -46,9 +50,11 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "jsdom": "^26",
+    "remark-gfm": "^4.0.1",
     "tailwindcss": "^4",
     "tsx": "^4",
     "typescript": "^5",
+    "unist-util-visit": "^5.1.0",
     "vitest": "^3"
   },
   "description": "Official documentation website for HardScript"

@@ -1,0 +1,49 @@
+---
+title: HTTP
+description: Routes, path parameters, request bodies, and WebSockets.
+section: HTTP
+order: 0
+template: index
+keywords: [http, routing, server]
+---
+
+A HardScript program is a set of routes. There is no router object, no
+middleware chain to assemble by hand, and no `app.get(...)` — a route is a
+top-level line, which means the routing table is the file.
+
+import { Radio, Route } from "lucide-react";
+
+<Grid cols={2}>
+  <Card
+    href="/docs/http/routes"
+    title="Routes"
+    description="Verbs, paths, path parameters, bodies, and how a handler returns."
+    icon={Route}
+  />
+  <Card
+    href="/docs/http/websockets"
+    title="WebSockets"
+    description="socket blocks, the three lifecycle hooks, and the helpers they use."
+    icon={Radio}
+  />
+</Grid>
+
+## What is in the HTTP surface
+
+| Form | Purpose |
+| --- | --- |
+| `app @port` | Declares the port, once |
+| `GET "/path" :: { }` | One endpoint |
+| `before name :: { }` | Named middleware |
+| `protect jwt(secret = …)` | Marks routes as requiring a token |
+| `socket "/path" { }` | A WebSocket endpoint |
+| `test "name" { }` | Calls routes the way a client would |
+
+## Two things to know before you start
+
+- **Paths are strings.** `GET "/users"` and never `GET /users`. The colon marks
+  a parameter: `GET "/users/:id"`.
+- **A handler has one exit.** `<-` responds and ends the block, so a route that
+  can answer two ways responds from two places rather than assigning a result
+  and falling through. [Control flow](/docs/language/control-flow) has the
+  pattern.

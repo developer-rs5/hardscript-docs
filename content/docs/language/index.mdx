@@ -1,0 +1,61 @@
+---
+title: Language
+description: Modules, models, bindings, functions, control flow, and what the compiler accepts today.
+section: Language
+order: 0
+template: index
+keywords: [language, reference, syntax]
+---
+
+A HardScript program is a flat list of top-level items — imports, a port
+declaration, models, middleware, functions, routes, sockets and tests — and
+there is no nesting of one file inside another. Modules are the unit of reuse,
+and they are brought in by name.
+
+import { Braces, FileCode, GitBranch, SquareFunction } from "lucide-react";
+
+<Grid cols={2}>
+  <Card
+    href="/docs/language/syntax"
+    title="Syntax"
+    description="The whole surface in one page: bring, app, model, routes, bindings."
+    icon={FileCode}
+  />
+  <Card
+    href="/docs/language/values"
+    title="Values"
+    description="Types, collections, and the operators that work on them."
+    icon={Braces}
+  />
+  <Card
+    href="/docs/language/control-flow"
+    title="Control flow"
+    description="Conditionals, loops, ranges — and the forms that do not exist yet."
+    icon={GitBranch}
+  />
+  <Card
+    href="/docs/language/functions"
+    title="Functions"
+    description="calc and async calc, including the parameter order the parser expects."
+    icon={SquareFunction}
+  />
+</Grid>
+
+## What is here
+
+| Page | Covers |
+| --- | --- |
+| [Syntax](/docs/language/syntax) | `bring`, `app @port`, models, routes, `<-` and `<-` bindings |
+| [Values](/docs/language/values) | `Int`, `Str`, `Bool`, `Float`, lists, maps, indexing |
+| [Control flow](/docs/language/control-flow) | `?( )` blocks, `loop` over lists and ranges |
+| [Functions](/docs/language/functions) | `calc`, `async calc` and `wait` |
+| [Errors](/docs/language/errors) | binding, the `<-` convention, and what is checked at compile time |
+
+Two facts shape everything else on these pages:
+
+- **`<-` does two things.** In a route or a `calc` body it is the return. In a
+  block it is a binding. `total <- 0` binds; `<- { ok: 1 }` returns.
+- **There is no `else`.** A conditional that does not match simply falls
+  through, and a route falls off the end of its body. The compiler will not
+  invent a path for you: [control flow](/docs/language/control-flow) shows the
+  pattern this forces, and it is a better one than it looks.

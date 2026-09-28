@@ -1,0 +1,49 @@
+---
+title: ORM
+description: Models, database connections, queries, migrations, and seeds.
+section: ORM
+order: 0
+template: index
+keywords: [orm, database, sql, postgres, sqlite, migration]
+---
+
+HardScript ships database support in the runtime rather than as a package: a
+model is a schema, a connection is a value, and a query is a function call.
+
+import { Database, Table2 } from "lucide-react";
+
+<Grid cols={2}>
+  <Card
+    href="/docs/orm/models"
+    title="Models"
+    description="Declaring a table, and the two forms the parser accepts."
+    icon={Table2}
+  />
+  <Card
+    href="/docs/orm/postgres"
+    title="PostgreSQL"
+    description="Connecting, querying, and the helpers available."
+    icon={Database}
+  />
+</Grid>
+
+## The shape of it
+
+```text
+bring postgres
+
+db <- postgres.connect("host=127.0.0.1 port=5432 user=postgres dbname=hardscript")
+
+rows <- postgres.query(db, "select id, name from users order by id")
+```
+
+A connection is bound at the top level with `<-`, the same binding as anything
+else, and every query takes that connection as its first argument.
+
+## What is in the runtime
+
+The emitted binary includes the database headers whether or not a program
+imports them — `hs_runtime_orm.hpp`, `hs_runtime_pgsql.hpp`,
+`hs_runtime_postgres.hpp`, `hs_runtime_sqlite.hpp`, `hs_runtime_migrate.hpp` —
+and the compiler only links what a program references. The command is
+[tooling](/docs/tooling/cli); the model is [models](/docs/orm/models).

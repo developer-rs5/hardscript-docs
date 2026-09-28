@@ -1,0 +1,135 @@
+---
+title: Known limitations
+description: Every gap between the language people expect and what the v0.9-alpha compiler accepts, with what compiles today, what differs, and where each one is being fixed.
+section: Limitations
+order: 0
+template: index
+version: 0.9-alpha
+keywords: [limitations, roadmap, bugs, gaps, known issues, tracking]
+---
+
+HardScript at v0.9-alpha is smaller than its keyword list suggests. The lexer
+reserves words the parser does not yet act on, and a few forms parse without
+doing anything at runtime. Those gaps are listed here, once, with the verified
+form beside each one.
+
+Every page in this documentation that is affected carries the same four-part
+callout, linked back to the entry below. No page shows syntax that does not
+compile, and no gap is left undocumented.
+
+## How to read the entries
+
+| Column | What it means |
+| --- | --- |
+| Compiles today | The form that is verified against v0.9-alpha |
+| You would expect | The form a reader will try first, and which fails |
+| Why they differ | What the parser or runtime actually does |
+| Tracked as | The id, and the milestone that will close it |
+
+## Reference
+
+| Id | Gap | Effect | Milestone |
+| --- | --- | --- | --- |
+| [L-01](#l-01-no-else) | No `else` or `else if` | Rejects at parse | v0.10 |
+| [L-02](#l-02-while-and-for) | No `while`, no `for` | Rejects at parse | v0.10 |
+| [L-03](#l-03-calc-parameter-order) | Parameters are `Type name` | Rejects at parse | v0.10 |
+| [L-04](#l-04-no-return) | No `return` | `HS0104` | v0.10 |
+| [L-05](#l-05-no-interpolation) | `${…}` is not interpolated | Silent: emits the literal | v0.10 |
+| [L-06](#l-06-unimplemented-methods) | Method calls evaluate to `null` | Silent: `null` | v0.10 |
+| [L-07](#l-07-wait-is-a-no-op) | `wait` does nothing | Cosmetic | v0.10 |
+| [L-08](#l-08-model-attribute-forms) | `#attr` and `@attr` are not interchangeable | Rejects at parse | v0.10 |
+| [L-09](#l-09-no-cache-statement) | No `cache` statement | `HS0001` | v0.10 |
+| [L-10](#l-10-optional-and-default-fields) | `?` and `= value` only in the brace form | Rejects at parse | v0.10 |
+
+<Limitation
+  id="l-01-no-else"
+  current="A `?` block, and falling through to the next statement when the test does not match."
+  expected="`if` / `else` / `else if`, as in most languages with braces."
+  why="The parser has a single conditional production — a test and one block. There is no else production to reach, so `else` is an unexpected token rather than an unhandled case."
+  tracked="L-01. Conditional completeness, v0.10. Use one `?` block per case, and respond from inside a loop to exit early."
+/>
+
+<Limitation
+  id="l-02-while-and-for"
+  current="`loop item => collection { }`, and `loop i => 0..n { }` for a counted repeat."
+  expected="`while (cond) { }` and `for item in collection { }`."
+  why="`loop` is the one iteration form in the parser. `while` and `for` are lexed as keywords and then rejected as unexpected tokens."
+  tracked="L-02. Iteration forms, v0.10. A range covers the counting case; the searching case exits by responding from inside the loop."
+/>
+
+<Limitation
+  id="l-03-calc-parameter-order"
+  current="`calc double(Int n) => Int { … }` — the type comes first, and a parameter must have one."
+  expected="`calc double(n: Int) => Int { … }`, and an optional type."
+  why="The parser reads a parameter as a type followed by a name, so `n: Int` leaves it looking for a name after a colon, and a bare `n` is read as a type with no name."
+  tracked="L-03. Function parameters, v0.10. Route parameters are the other way round — `(id = Str)` — so both spellings are in use until this closes."
+/>
+
+<Limitation
+  id="l-04-no-return"
+  current="`<-` ends a `calc` body or a route, and `<-` also binds a name when it is not the last statement."
+  expected="`return value`, which stops the function and returns."
+  why="`return` is not defined in the runtime's value namespace, so lowering it produces an unknown symbol and codegen reports `HS0104`."
+  tracked="L-04. Return statements, v0.10. `<-` covers the common case: a value at the end of a body is the return value."
+/>
+
+<Limitation
+  id="l-05-no-interpolation"
+  current="`&quot;n is &quot; + n` — concatenation, with the value bound to a name first."
+  expected="`&quot;n is ${n}&quot;`, interpolated at runtime."
+  why="The parser accepts a `$` followed by `{…}` inside a string literal and the lexer keeps it as part of the literal, so it reaches codegen as literal text. There is no diagnostic, which is what makes this one dangerous: the program compiles and prints the placeholder."
+  tracked="L-05. String interpolation, v0.10. Concatenate instead, and read any output that contains `${` as a bug."
+/>
+
+<Limitation
+  id="l-06-unimplemented-methods"
+  current="Operators (`+`, `==`, `>`), indexing (`xs[0]`, `m.a`), and the module functions (`json.parse`, `fs.read`, `time.now`)."
+  expected="`s.upper()`, `s.contains(…)`, `s.split(…)`, `xs.first()`, `xs.length`."
+  why="The parser lowers a method call to a value member access, and the runtime has no implementation behind those names, so the call yields null rather than a diagnostic."
+  tracked="L-06. Standard-library methods, v0.10. Keep a count as a field on a model and let the database count it."
+/>
+
+<Limitation
+  id="l-07-wait-is-a-no-op"
+  current="Calling an `async calc` directly: `result <- slow(&quot;done&quot;)`."
+  expected="`result <- wait(slow(&quot;done&quot;))`."
+  why="`wait` accepts any value and returns it unchanged, and `hard fmt` removes it when it wraps a direct call. Keeping it would mean the formatter and the documentation disagreed."
+  tracked="L-07. Async scheduling, v0.10. `wait` is still accepted, so code written either way compiles."
+/>
+
+<Limitation
+  id="l-08-model-attribute-forms"
+  current="The bracket form with `#attr`: `model User = users [ id => Int #id ]`."
+  expected="One attribute syntax across both model forms, and the brace form to accept the same attributes."
+  why="The bracket form was the original blueprint syntax and the brace form was added later with `@attr`. Each parser branch accepts only the marker its own form was written with, so `#id` in a brace model and `@id` in a bracket model are both `HS0001`."
+  tracked="L-08. Model syntax unification, v0.10. Write the bracket form: it is what the compiler's own examples, the generated SQL and the tooling use."
+/>
+
+<Limitation
+  id="l-09-no-cache-statement"
+  current="Caching as a module: `bring cache`, or the headers the runtime already carries."
+  expected="A `cache &quot;key&quot; ttl 10m { … }` statement that declares a cached region."
+  why="`cache` is not a keyword, so it is lexed as an identifier and the parser rejects it as an unexpected token. The runtime ships `hs_runtime_cache.hpp`, so the capability exists on the C++ side and not in the language."
+  tracked="L-09. Cache declarations, v0.10."
+/>
+
+<Limitation
+  id="l-10-optional-and-default-fields"
+  current="Every field in the bracket form is required; `?` and `= value` are only accepted in the brace form."
+  expected="`name => Str ?` and `name => Str = &quot;anon&quot;` in the form most readers will use."
+  why="Optional and default markers were parsed with the brace form's field list and were never added to the bracket form's field parser."
+  tracked="L-10. Field constraints, v0.10."
+/>
+
+## Notes
+
+The milestones above are the order this repository intends to close them in; the
+compiler repository is where a tracking issue for any one of them belongs. The
+version in this site is pinned by `NEXT_PUBLIC_HARD_VERSION`, and every
+diagnostic code links here from the [error catalog](/docs/errors/catalog).
+
+Two gaps deserve repeating because they fail silently rather than loudly:
+[L-05](#l-05-no-interpolation) prints its own placeholder, and
+[L-06](#l-06-unimplemented-methods) returns `null` where a value was expected.
+Everything else on this page fails at compile time, which is the kind of problem
+this documentation prefers.

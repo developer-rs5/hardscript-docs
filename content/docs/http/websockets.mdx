@@ -1,0 +1,126 @@
+---
+title: WebSockets
+description: socket blocks, the connect/message/disconnect hooks, and the websocket helpers available in them.
+section: HTTP
+order: 20
+template: concept
+keywords: [websocket, socket, realtime, broadcast, room]
+---
+
+A WebSocket endpoint is a `socket` block with up to three hooks: `connect`,
+`message`, and `disconnect`. A hook is `name :: { }`; `message` takes the frame
+as a parameter, and the other two take none.
+
+## Explanation
+
+```text
+socket "/chat" {
+    connect :: { … }
+    message(d) :: { … }
+    disconnect :: { … }
+}
+```
+
+- `connect` runs when a client opens the socket. `websocket.join(room)` puts the
+  connection in a room.
+- `message(d)` runs per frame, with `d` bound to the frame's contents.
+- `disconnect` runs when the connection closes.
+
+The helpers available inside a socket block:
+
+| Helper | Effect |
+| --- | --- |
+| `websocket.join(name)` | Add this connection to a room |
+| `websocket.leave()` | Remove it |
+| `websocket.broadcast(text)` | Send text to the room |
+| `websocket.reply(text)` | Send text back to the sender |
+| `websocket.self` | The connection's own identifier |
+
+`broadcast` and `reply` take a string. To send a structure, serialise it with
+`json.stringify` first.
+
+## Syntax
+
+```text
+socket "/path" {
+    connect :: { … }
+    message(frame) :: { … }
+    disconnect :: { … }
+}
+```
+
+Conditionals work inside a `message` hook like anywhere else, and there is no
+`else` — one `?` block per case, each responding in its own way.
+
+## Examples
+
+A room with a ping endpoint and a join/leave notice:
+
+```hard title=main.hard
+bring http
+
+bring websocket
+
+app @9090
+
+socket "/chat" {
+    connect :: {
+        websocket.join("lobby")
+        websocket.broadcast(websocket.self + " joined")
+    }
+    message(d) :: {
+        ?(d == "ping") {
+            websocket.reply("pong")
+        }
+        ?(d == "leave") {
+            websocket.leave()
+        }
+    }
+    disconnect :: {
+        websocket.broadcast(websocket.self + " left")
+    }
+}
+
+test "the socket path is not a route" {
+    res <- GET "/chat"
+    expect res.status == 404
+}
+```
+
+`websocket.self + " joined"` is string concatenation with a value the runtime
+provides, so the broadcast is plain text.
+
+## Performance
+
+- A room is a set of connections. `broadcast` walks it, so its cost is linear in
+  the number of members — which is the number you are paying for by choosing
+  broadcast over `reply`.
+- `reply` is one connection and does not grow with the room.
+- Nothing in a socket block is on the HTTP request path: a long handler in
+  `message` delays frames for that connection and nothing else.
+
+## Best practices
+
+- `join` in `connect`, `leave` in `disconnect`. A connection that joins and
+  never leaves keeps receiving broadcasts it cannot see the point of.
+- Return early per frame with a `?` block rather than threading a `kind`
+  variable through the handler.
+- `broadcast` for anything the whole room should see, `reply` for anything
+  addressed to one client.
+- Keep rooms named by the thing they are, not by who is in them — `lobby`,
+  `org:42` — so membership is obvious in a log line.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| `socket "/chat" { connect {} }` | `HS0002`, hooks use `::` | `connect :: { }` |
+| `message :: { }` | The frame is not in scope | `message(d) :: { }` |
+| `websocket.broadcast({ a: 1 })` | Not a string | `json.stringify({ a: 1 })` |
+| `?(d == "a") { } else { }` | `HS0001` | A second `?` block |
+
+## Related
+
+- [Routes](/docs/http/routes) — the request/response side
+- [Control flow](/docs/language/control-flow) — one case per `?` block
+- [Values](/docs/language/values) — why `"… " + self` rather than a template

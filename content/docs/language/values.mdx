@@ -1,0 +1,166 @@
+---
+title: Values
+description: The types HardScript has, the operators on them, and a set of method calls that parse but are not implemented yet.
+section: Language
+order: 20
+template: concept
+keywords: [types, values, lists, maps, strings, operators]
+---
+
+HardScript is statically typed. Field types in a model are checked at compile
+time; values that arrive at runtime are checked when they are used.
+
+## Explanation
+
+| Type | Literal | Notes |
+| --- | --- | --- |
+| `Int` | `7` | Signed integer |
+| `Float` | `1.5` | Any division produces one: `7 / 2` is `3.5` |
+| `Str` | `"ada"` | Concatenate with `+` |
+| `Bool` | `true` | From comparisons and `?` blocks |
+| `Email` | — | A validation constraint, checked against the field's type |
+| lists | `[1, 2, 3]` | Index from `0` |
+| maps | `{ a: 1 }` | Keys are strings; `.a` and `["a"]` both read |
+
+There is no `null` in the type system, and no `Option`. A map without the key
+you read yields a value that serialises as `null`, which is the sharpest edge on
+this page.
+
+## Syntax
+
+### Literals and arithmetic
+
+```text
+7          an Int
+7.0        a Float
+"ada"      a Str
+true       a Bool
+[1, 2]     a list
+{ k: 1 }   a map
+```
+
+`+` adds numbers, joins strings, and concatenates lists. Subtraction,
+multiplication, division, and parentheses all behave as you would expect.
+Division is float division, always: `7 / 2` is `3.5`, and there is no integer
+division operator.
+
+### Comparisons and logic
+
+```text
+a == b     equal
+a != b     not equal
+a > b      greater
+a >= b     greater or equal
+a < b      less
+a <= b     less or equal
+!a         not
+a && b     and
+a || b     or
+```
+
+### Reading values
+
+```text
+xs[0]      the first element of a list
+m.a        a key on a map
+m["a"]     the same key, bracket form
+```
+
+Both map forms work. The bracket form is the one to reach for when the key is
+computed.
+
+### Ranges
+
+```text
+0..3        0, 1, 2
+0...3       0, 1, 2, 3
+```
+
+The half-open form `a..b` stops before `b`; the three-dot form `a...b` includes
+it. Ranges are only useful with `loop`, and they are how you iterate a count
+without building a list first.
+
+## Examples
+
+Reading values the way a handler does:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+app @8080
+
+GET "/values" :: {
+    xs <- [1, 2, 3]
+    m <- { first: xs[0], greeting: "hello" + " ada" }
+    half <- 7 / 2
+    sum <- 0
+    loop x => xs {
+        sum <- sum + x
+    }
+    <- { mapped: m.first, greeting: m.greeting, half: half, total: sum, positive: sum > 0 }
+}
+```
+
+This program returns:
+
+```json
+{ "mapped": 1, "greeting": "hello ada", "half": 3.5, "total": 6, "positive": true }
+```
+
+## Performance
+
+- `+` on two lists allocates a new list. In a `loop` that runs many times, bind
+  an accumulator and add to it rather than rebuilding the list each pass.
+- `m.a` and `m["a"]` both compile to a map lookup; neither is faster.
+- Float division is what `/` does, so there is no faster integer path to
+  choose. Convert once at the edges if you need a count.
+- Ranges are compiled to a counted loop: no list is materialised for
+  `loop i => 0..n`.
+
+## Best practices
+
+- Use maps for structured responses and lists for collections of the same
+  shape. A list of maps is a table; a map of lists is a summary.
+- Compute keys as variables and read with `m[key]`, so the shape of the map is
+  not spread across a file as literals.
+- Keep division out of hot paths unless you want a float: `total / count` on
+  every request pays for the float even when the result is whole.
+
+## Common mistakes
+
+<Limitation
+  id="l-06-unimplemented-methods"
+  current="Operators (`+`, `==`, `>`), indexing (`xs[0]`, `m.a`), and the module functions (`json.parse`, `fs.read`, `time.now`)."
+  expected="`s.upper()`, `s.contains(&quot;x&quot;)`, `s.split(&quot;,&quot;)`, `xs.first()` and `xs.length`."
+  why="A method call is lowered to a member access on a value, and the runtime has no implementation behind those names, so the call yields null instead of a diagnostic. The measured result of all five probes is null."
+  tracked="L-06. Standard-library methods, v0.10. Keep a length as a field on a model and let the database count it."
+/>
+
+The consequence, concretely, is that this program compiles and answers with
+nones:
+
+```text
+s <- "hello world"
+s.length()   ->  null
+s.contains("world")   ->  null
+xs.length    ->  null
+s.upper()    ->  null
+```
+
+Other traps:
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| `7 / 2` expecting `3` | `3.5` | Cast explicitly, or compare as a float |
+| `m.missing` | `null` in the response | Check the key with `?` before reading |
+| `"n is ${n}"` | The literal text `n is ${n}` | `"n is " + n` |
+| `s.length()` | `null` | Count it where the data is produced |
+
+## Related
+
+- [Control flow](/docs/language/control-flow) — reading a key safely
+- [Functions](/docs/language/functions) — parameters, types and return values
+- [Models](/docs/orm/models) — where field types are enforced
+- [Error catalog](/docs/errors/catalog) — `HS0104` and the rest

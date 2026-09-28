@@ -1,17 +1,17 @@
 import type { NextConfig } from "next";
-import createMDX from "@next/mdx";
 
-const withMDX = createMDX({
-  extension: /\.mdx?$/,
-  options: {
-    remarkPlugins: [],
-    rehypePlugins: [],
-  },
-});
-
+/**
+ * No `@next/mdx` loader.
+ *
+ * The content tree lives outside `src/`, is read at build time, and is compiled
+ * per page by `next-mdx-remote/rsc` — which is also where the remark plugins
+ * live, since the loader cannot serialise a plugin function into its worker.
+ * A second MDX compiler would only be a second set of rules.
+ *
+ * `remark-gfm` and the fence plugin are applied in the route, where the page and
+ * its plugins are compiled together.
+ */
 const nextConfig: NextConfig = {
-  pageExtensions: ["ts", "tsx", "md", "mdx"],
-  // MDX pages are content; the docs loader wraps them for navigation.
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts", "framer-motion"],
   },
@@ -34,9 +34,8 @@ const nextConfig: NextConfig = {
     return [
       { source: "/documentation", destination: "/docs", permanent: true },
       { source: "/reference", destination: "/api-reference", permanent: true },
-      { source: "/docs/getting-started", destination: "/docs/introduction", permanent: true },
     ];
   },
 };
 
-export default withMDX(nextConfig);
+export default nextConfig;

@@ -1,0 +1,43 @@
+---
+title: Errors
+description: Every diagnostic the compiler can emit, and how to read one.
+section: Errors
+order: 0
+template: index
+keywords: [errors, diagnostics, catalog, HS0001]
+---
+
+HardScript diagnostics have stable codes and a fixed help line. The catalog is
+generated from the compiler itself, so it cannot drift from what the compiler
+actually emits.
+
+import { List, Search } from "lucide-react";
+
+<Grid cols={2}>
+  <Card
+    href="/docs/errors/catalog"
+    title="Error catalog"
+    description="All 75 codes, with what each one means and an example that produces it."
+    icon={List}
+  />
+  <Card
+    href="/docs/language/errors"
+    title="Reading a diagnostic"
+    description="What the code, the caret and the help line are telling you."
+    icon={Search}
+  />
+</Grid>
+
+## The ranges
+
+| Range | What lives there |
+| --- | --- |
+| `HS00xx` | Lexer and parser |
+| `HS01xx` | Names, bindings and types |
+| `HS02xx` | Semantics: routes, models, middleware |
+| `HS03xx` | Codegen and the emitted program |
+
+The [catalog](/docs/errors/catalog) is written by
+`npm run docs:errors`, which runs `hard errors --markdown` and turns the result
+into a page. It is not written by hand, which is the point: a hand-written error
+list is a list that goes stale, and a stale error list is worse than none.

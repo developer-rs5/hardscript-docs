@@ -1,0 +1,154 @@
+---
+title: Functions
+description: calc and async calc — including the type-before-name parameter order the parser expects.
+section: Language
+order: 40
+template: concept
+keywords: [calc, function, async, wait, return]
+---
+
+Functions are declared with `calc`, not `fn`. The body responds with `<-`; there
+is no `return` statement.
+
+## Explanation
+
+<Limitation
+  id="l-03-calc-parameter-order"
+  current="`calc double(Int n) => Int { … }` — the type first, and required."
+  expected="`calc double(n: Int) => Int { … }`, with the type optional."
+  why="The parser reads a parameter as a type followed by a name. With `n: Int` it takes `n` as the type and then finds a colon where the name should be, and with a bare `n` it takes the name as the type and finds the closing parenthesis."
+  tracked="L-03. Function parameters, v0.10. Route parameters go the other way round — `(id = Str)` — so both spellings are in use until this closes."
+/>
+
+<Limitation
+  id="l-04-no-return"
+  current="`<-` at the end of a `calc` body, which is the return value."
+  expected="`return n * 2`, which stops the function and returns."
+  why="`return` is not a name in the runtime's value namespace, so lowering it produces an unknown symbol and codegen reports `HS0104` before the C++ is written."
+  tracked="L-04. Return statements, v0.10. A value as the last statement of the body is the return value."
+/>
+
+<Limitation
+  id="l-07-wait-is-a-no-op"
+  current="`result <- slow(&quot;done&quot;)` — the call is the suspension point."
+  expected="`result <- wait(slow(&quot;done&quot;))`, which makes the suspension visible."
+  why="`wait` accepts any value and returns it unchanged, so it cannot change behaviour — and `hard fmt` removes it when it wraps a direct call to an `async calc`. Writing it would mean the formatter and the documentation disagreed."
+  tracked="L-07. Async scheduling, v0.10. `wait` is still accepted, so either spelling compiles."
+/>
+
+A function with a return type writes it after `=>`:
+
+```text
+calc double(Int n) => Int {
+    <- n * 2
+}
+```
+
+Without one:
+
+```text
+calc greet(Str name) {
+    <- "hello, " + name
+}
+```
+
+## Syntax
+
+```text
+calc name(Type param, Type other) => ReturnType {
+    <- expression
+}
+
+async calc name(Type param) => ReturnType {
+    <- expression
+}
+```
+
+Calling a `calc` is plain: `double(21)`.
+
+## Examples
+
+```hard title=main.hard
+bring http
+
+bring json
+
+app @8080
+
+calc double(Int n) => Int {
+    <- n * 2
+}
+
+calc greeting(Str name, Str greeting) => Str {
+    <- greeting + ", " + name
+}
+
+calc slow(Str value) => Str {
+    <- value
+}
+
+GET "/calc/:n" :: (n = Str) {
+    n2 <- double(21)
+    result <- slow("done")
+    <- { doubled: n2, greeting: greeting("Ada", "Hello"), awaited: result }
+}
+
+test "double is doubling" {
+    res <- GET "/calc/1"
+    expect res.body.doubled == 42
+}
+```
+
+`async calc` marks a function as suspendable. Calling it is a suspension point
+by itself, so the result comes straight back:
+
+```text
+result <- slow("done")
+```
+
+`wait` also exists, and is accepted around any value — `wait(1)` is `1`, and
+`wait(slow("done"))` is `slow("done")`. It is a no-op, and `hard fmt` removes it
+when it wraps a direct call to an `async calc`:
+
+```console
+$ hard fmt --check main.hard
+main.hard is not formatted (run `hard fmt`)
+```
+
+So write the call without `wait`, and the formatter agrees.
+
+## Performance
+
+- A `calc` call is a call. Marking one `async` does not by itself make the
+  program concurrent; it makes the call suspendable at `wait`.
+- There is no inline directive. If a `calc` is small enough that call overhead
+  matters, it probably wants to be a binding instead of a function.
+- Shared work belongs in a `calc`, not in a value: a value is re-evaluated at
+  every use.
+
+## Best practices
+
+- Keep parameters typed, and type them narrowly. The parameter list is where the
+  compiler learns what a function is allowed to touch.
+- One `calc` per idea. A function that needs a comment to explain its branches
+  wants to be two.
+- Use `async calc` when the work is genuinely suspending — an HTTP call, a
+  channel, a long computation. Everything else stays a plain `calc`.
+- Prefer bindings for one-off values. A `calc` you call once is a name, not
+  structure.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| `fn double(n) => Int` | `HS0002` | `calc double(Int n) => Int` |
+| `calc double(n: Int)` | `HS0002` | `calc double(Int n)` |
+| `calc double(Int n) => Int { return n }` | `HS0104` | `<- n` |
+| `async double(...)` | `HS0002`, `expected calc` | `async calc double(...)` |
+| `r <- slow("x")` | The pending value, not the result | `r <- wait(slow("x"))` |
+
+## Related
+
+- [Values](/docs/language/values) — the operators a `calc` body is built from
+- [Syntax](/docs/language/syntax) — bindings and returns
+- [Error catalog](/docs/errors/catalog) — `HS0104`, `HS0002` and friends

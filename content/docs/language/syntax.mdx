@@ -1,0 +1,190 @@
+---
+title: Syntax
+description: Every top-level form in a HardScript program, with the exact spelling the parser accepts.
+section: Language
+order: 10
+template: concept
+keywords: [syntax, bring, app, model, routes, bindings, reference]
+---
+
+A HardScript file is a sequence of top-level items. There is no `main`, no
+`import` inside a function, and no nesting: a program either does the thing or
+declares the thing that does it.
+
+## Explanation
+
+Five top-level forms cover most programs.
+
+| Form | Spelling | What it does |
+| --- | --- | --- |
+| Import | `bring http` | Brings a module's names into scope |
+| Port | `app @8080` | Binds the HTTP server to a port |
+| Model | `model User = users [ … ]` | Declares a table and its fields |
+| Route | `GET "/x" :: { … }` | One endpoint |
+| Test | `test "name" { … }` | A check that runs under `hard test` |
+
+Below those sit functions, middleware, WebSockets and `protect`. Every one of
+them is top-level too.
+
+<Callout kind="note" title="One file is the normal case">
+`hard build` defaults to `main.hard` in the current directory. Projects are
+flat: a manifest, one source file, and `.hard/` for build output. A large
+service grows more files, but nothing requires it to.
+</Callout>
+
+## Syntax
+
+### Imports
+
+`bring` takes a module name, or a quoted path:
+
+```text
+bring http          the router, request, response
+bring json          json.parse, json.stringify
+bring fs            fs.read, fs.write, fs.exists
+bring crypto        digests, randomness
+bring jwt           jwt.sign, jwt.verify
+bring websocket     socket helpers
+bring time          time.now
+bring postgres      postgres.connect, postgres.query
+```
+
+`bring http/json` is not a thing: the modules are flat names, and `json` is one
+of them. Writing it that way is `HS0002`.
+
+### The port
+
+```text
+app @8080
+```
+
+Once per program, at the top level. A second `app` declaration is a duplicate,
+not an override.
+
+### Bindings and returns
+
+One arrow, two jobs:
+
+| Context | Spelling | Meaning |
+| --- | --- | --- |
+| Statement | `total <- 0` | Bind a name to a value |
+| Last statement of a route or `calc` | `<- { ok: 1 }` | Respond / return |
+
+A binding is usable immediately after it. A `<-` ends the block, so anything
+after it in the same block is unreachable — and the compiler says so.
+
+### Models
+
+Two forms, one meaning. The bracket form is the one to write:
+
+```text
+model User = users [
+    id => Int #id,
+    email => Email,
+    name => Str,
+]
+```
+
+Fields are `field => Type` and are separated by commas. Attributes are prefixed
+with `#`. The brace form is accepted as well and uses `field : Type` with
+`@attr`; the [models page](/docs/orm/models) explains why that matters.
+
+### Routes
+
+```text
+GET "/users" :: { … }
+POST "/users" :: (body = User) { … }
+GET "/users/:id" :: (id = Str) { … }
+```
+
+The verb is uppercase, the path is a quoted string, and the body follows `::`.
+Parameters go in parentheses before the body. A path segment beginning with `:`
+becomes a parameter, and its name must appear in that list.
+
+## Examples
+
+A program using every top-level form except WebSockets:
+
+```hard title=main.hard
+bring http
+
+bring json
+
+bring fs
+
+app @8080
+
+model User = users [
+    id => Int #id,
+    email => Email,
+    name => Str,
+]
+
+secret <- "change-me"
+
+calc slug(Str name) => Str {
+    <- name + ""
+}
+
+before audit :: {
+    <- {  }
+}
+
+POST "/users" :: (body = User) {
+    <- { status: 201, user: body }
+}
+
+GET "/users/:id" :: (id = Str) {
+    <- { id: slug(id) }
+}
+
+test "slug is the identity" {
+    res <- GET "/users/ada"
+    expect res.body.id == "ada"
+}
+```
+
+## Performance
+
+The compiler emits one C++ translation unit, so nothing here costs a pass at
+runtime. What is worth knowing:
+
+- Top-level `bring` is resolved at compile time. Importing `fs` when a program
+  never reads a file costs nothing in the emitted code.
+- `calc` calls are ordinary calls after lowering; keep them small rather than
+  worried about dispatch.
+- A `loop` over a list is a range loop over the materialised list, so it walks
+  elements in order and cannot short-circuit. To stop early, respond from inside
+  the loop — see [control flow](/docs/language/control-flow).
+
+## Best practices
+
+- Keep `app @port` at the top, above the models that use it.
+- Name path parameters after the column they select, so the handler body reads
+  as a lookup.
+- Use the bracket form for models. The brace form is accepted, but its attribute
+  syntax is not the one the examples and the tooling use.
+- Write one `test` per behaviour, named as a sentence: `test "an unknown id is a
+  404"`.
+
+## Common mistakes
+
+| Written | Result | Write instead |
+| --- | --- | --- |
+| `bring http/json` | `HS0002` | `bring json` |
+| `GET /users :: { }` | `HS0002`, path must be a string | `GET "/users" :: { }` |
+| `get "/users"` | `HS0002`, verb is uppercase | `GET "/users"` |
+| `let x = 1` | `HS0001` | `x <- 1` |
+| `return 1` inside a `calc` | `HS0104`, `return` is not defined | `<- 1` |
+| `"hi ${name}"` | Compiles, and is **not** interpolated — see [L-05](/docs/limitations#l-05-no-interpolation) | `"hi " + name` |
+
+That last row is worth remembering: the parser accepts a `${…}` sequence inside
+a string and emits it verbatim. Concatenation is the portable form.
+
+## Related
+
+- [Values](/docs/language/values) — types, collections, indexing
+- [Control flow](/docs/language/control-flow) — conditionals, loops, and early exit
+- [Functions](/docs/language/functions) — `calc` and `async calc`
+- [Routes](/docs/http/routes) — the HTTP surface in detail
+- [Error catalog](/docs/errors/catalog) — every `HSxxxx` code

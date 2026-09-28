@@ -1,0 +1,122 @@
+---
+title: CLI reference
+description: Every hard command, as the compiler's own help text lists them.
+section: Tooling
+order: 10
+template: reference
+keywords: [cli, hard, commands, reference, flags]
+---
+
+The list below is `hard --help`, in the compiler's own order. Where a command
+has more flags, they are in the notes.
+
+## Overview
+
+`hard` takes one subcommand. With no subcommand it prints help. Files default to
+`main.hard` in the current directory.
+
+A project is described by `hard.toml` and pinned by `hard.lock`; the package
+cache lives in `$HARD_HOME/cache`, which defaults to `~/.hard/cache`.
+
+## Reference
+
+### Build and run
+
+| Command | Effect |
+| --- | --- |
+| `hard new <name>` | Create a project, or use a named template |
+| `hard init` | Write a manifest in the current directory |
+| `hard build [file]` | Compile to a native executable |
+| `hard run [file] [args..]` | Build and run the server |
+| `hard test [file]` | Build and run the test suite |
+| `hard bench [file]` | Release-build and report timings |
+| `hard seed [file]` | Run seed files against the database |
+
+`hard build` prints a cache line — `hit`, `miss`, `skipped`, `compiled` — and
+the path of the executable. `hard test` builds first, then runs every `test`
+block in the file.
+
+### Source
+
+| Command | Effect |
+| --- | --- |
+| `hard fmt [file]` | Reformat in place |
+| `hard docs [file]` | Generate `API.md` for a source file |
+| `hard hir [file]` | Print the lowered HIR |
+| `hard opt [file]` | Optimize and show the result |
+| `hard errors` | List the diagnostic catalog; `--markdown` for the docs |
+
+`hard fmt --check <file>` reports whether a file is formatted without touching
+it, and exits non-zero when it is not. `hard errors --markdown` is the source
+this site's [error catalog](/docs/errors/catalog) is generated from.
+
+### Packages
+
+| Command | Effect |
+| --- | --- |
+| `hard add <pkg>[@req]` | Add a dependency and install it |
+| `hard remove <pkg>` | Remove a dependency |
+| `hard install` | Resolve and lock all dependencies |
+| `hard update [pkg]` | Update locked packages to the newest match |
+| `hard list` | Show installed packages |
+| `hard outdated` | Show packages with newer releases |
+| `hard search <q>` | Search the registry |
+| `hard info <pkg>` | Show package metadata |
+| `hard cache <info\|verify\|clean>` | Inspect the shared cache |
+| `hard workspace <list\|build\|test>` | Run across workspace members |
+
+### Registry
+
+| Command | Effect |
+| --- | --- |
+| `hard publish` | Build a `.hspkg` and publish it |
+| `hard yank <pkg>[@<ver>]` | Retract a published version |
+| `hard download <pkg>[@<ver>]` | Download a `.hspkg` archive |
+| `hard register --user <name>` | Create a registry account |
+| `hard login [--user <name>]` | Log in and store a token |
+| `hard logout` | Revoke and forget the token |
+| `hard whoami` | Show who the token belongs to |
+| `hard token <create\|list\|revoke>` | Manage personal access tokens |
+| `hard report` | Write ecosystem reports to `reports/` |
+
+The registry commands need network access. Offline, they fail with a resolver
+error rather than hanging, which is worth knowing before a CI run depends on
+one.
+
+### Database
+
+| Command | Effect |
+| --- | --- |
+| `hard migrate <diff\|up\|down\|status> [--dialect <name>] [--database <target>]` | Run migrations |
+| `hard seed [file]` | Run seed files |
+
+`hard migrate diff` writes a migration from the models. `up` applies, `down`
+reverts, `status` says where you are.
+
+### Diagnostics
+
+| Command | Effect |
+| --- | --- |
+| `hard doctor` | Check `g++`, the runtime, the cache |
+| `hard errors` | Print the catalog of 75 codes |
+| `hard report` | Write ecosystem reports |
+
+## Notes
+
+- **Exit codes.** `hard fmt --check` and `hard test` exit non-zero on failure.
+  That is what makes them usable in a pipeline, and it is why this site runs
+  both on every content change.
+- **`--help` is not a flag.** `hard build --help` prints the top-level help.
+  There is no per-command help, so this page is the reference.
+- **The version line.** `hard --version` prints the compiler version, which is
+  not always the runtime version. `hard doctor` prints both, along with the
+  runtime commit.
+- **`hard bench` is the only honest timing source.** A `hard build` is not
+  release-optimised, so a number measured against one is a number about your
+  development build.
+
+## Related
+
+- [Runtime](/docs/runtime) — what a build produces
+- [Error catalog](/docs/errors/catalog) — every code, with an example
+- [Registry](/docs/registry) — manifests, locks, and publishing
