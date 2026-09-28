@@ -21,7 +21,8 @@
     "docs:errors": "tsx scripts/generate-errors.ts",
     "verify": "npm run lint && npm run typecheck && npm run docs:format:check && npm run docs:validate && npm run build && npm test",
     "docs:format": "tsx scripts/format-content.ts",
-    "docs:format:check": "tsx scripts/format-content.ts --check"
+    "docs:format:check": "tsx scripts/format-content.ts --check",
+    "check:deploy": "tsx scripts/ci/check-deploy.ts"
   },
   "dependencies": {
     "@mdx-js/loader": "3.1.1",

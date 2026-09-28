@@ -33,6 +33,17 @@ export type InstallMethod = {
   summary: string;
   requires: string[];
   steps: InstallStep[];
+  /**
+   * The single command the homepage shows, for the method that works.
+   *
+   * It must be a line the reader will also find on /install, which is why it is
+   * a field here rather than a string typed into the homepage. The homepage used
+   * to advertise `curl … install.sh | sh` — a command for a script that does not
+   * exist, on a domain that does not resolve — and it survived every gate in
+   * this repository, because the validator compiles HardScript and said nothing
+   * about a shell one-liner sitting next to it.
+   */
+  heroCommand?: string;
   /** For planned methods: the artifact that is missing. */
   blockedBy?: string;
 };
@@ -44,6 +55,9 @@ const SOURCE_BUILD: InstallMethod = {
   label: "Build from source",
   status: "verified",
   verifiedOn: "Debian 12, g++ 15.3",
+  // One line, and it is the real one: clone the repository, then install the
+  // package called `cli`, which puts a binary called `hard` on PATH.
+  heroCommand: "git clone https://github.com/developer-rs5/hardscript-1.git && cargo install --path cli",
   summary:
     "The whole toolchain is one Cargo package, and this is the method that is guaranteed to work: it needs a Rust toolchain and a C++ compiler, and nothing else. Everything else on this page is a wrapper around it.",
   requires: ["rust 1.75+", "g++ 13+ or clang++ 17+", "git"],

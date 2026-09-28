@@ -22,7 +22,6 @@ export const site = {
   docsRepo: "https://github.com/developer-rs5/hardscript-docs",
   version: "1.0-beta",
   languageVersion: "0.9-alpha",
-  install: "curl -fsSL https://hardscript.org/install.sh | sh",
 } as const;
 
 export type NavItem = {

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { HeroCode } from "@/components/home/hero-code";
 import { FeatureMarquee } from "@/components/home/feature-marquee";
 import { site } from "@/lib/site";
+import { getInstallMethods } from "@/lib/install";
 
 export const metadata: Metadata = {
   title: `${site.name} — ${site.tagline}`,
@@ -13,7 +14,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-const INSTALL = "curl -fsSL https://hardscript.org/install.sh | sh";
+/**
+ * The install command on the homepage comes from the install page's data, not
+ * from a string typed here. It used to be a hardcoded one-liner, and the two
+ * drifted into fiction: `curl … install.sh | sh` names a script that has never
+ * existed on a domain that does not resolve. One source, and the install page
+ * becomes the place to change it.
+ */
+const INSTALL = getInstallMethods().find((m) => m.heroCommand)?.heroCommand ?? "hard doctor";
 
 export default function HomePage() {
   return (

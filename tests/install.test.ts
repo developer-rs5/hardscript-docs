@@ -6,6 +6,7 @@
  * layout.
  */
 
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { getInstallMethods, installMethods, type InstallMethod } from "@/lib/install";
 
@@ -119,5 +120,40 @@ describe("install methods", () => {
     // The page calls this at build time. A fresh array each call would be fine
     // functionally and would make the "primary" method depend on nothing.
     expect(methods).toBe(installMethods);
+  });
+});
+
+describe("the homepage install command", () => {
+  it("is the command the install page documents, not a string typed twice", () => {
+    // The homepage once advertised `curl -fsSL https://hardscript.org/install.sh
+    // | sh`, for a script that has never existed on a domain that does not
+    // resolve. It survived every gate here, because the validator compiles
+    // HardScript and says nothing about a shell one-liner beside it. So the
+    // string now lives in the install data, and this asserts they agree.
+    const source = installMethods.find((m) => m.heroCommand) as InstallMethod;
+    expect(source.heroCommand).toBeDefined();
+    expect(source.status).toBe("verified");
+
+    const page = readFileSync("src/app/page.tsx", "utf8");
+    expect(page).toContain("getInstallMethods()");
+    // A string literal, not the words: this file explains where the old command
+    // went, so asserting on `install.sh` would fail on the very comment that
+    // documents the fix. A quote is what makes it code rather than prose.
+    expect(page).not.toContain('"curl -fsSL');
+    expect(page).not.toContain("'curl -fsSL");
+
+    // And it is a command the reader will actually find on the page.
+    const steps = source.steps.map((s) => s.command).join("\n");
+    for (const part of source.heroCommand!.split(" && ")) {
+      expect(steps, `the homepage shows "${part}", which /install does not`).toContain(part);
+    }
+  });
+
+  it("no longer names a domain that does not resolve", () => {
+    for (const m of installMethods) {
+      if (!m.heroCommand) continue;
+      expect(m.heroCommand).not.toContain("hardscript.org");
+      expect(m.heroCommand).toContain("developer-rs5/hardscript-1");
+    }
   });
 });
