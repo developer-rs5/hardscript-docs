@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { allPages, docSections } from "@/lib/docs";
+import { docSections } from "@/lib/docs";
 import { site } from "@/lib/site";
 
 /**

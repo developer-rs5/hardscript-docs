@@ -10,7 +10,10 @@
   # real compiler. This resolves one: $HARD_BIN if the build image has it, a
   # sibling checkout if this is a developer machine, and otherwise a shallow
   # clone plus a release build.
-  command = "HARD_BIN=\$(bash scripts/ci/ensure-compiler.sh) npm run build"
+  # A TOML *literal* string, in single quotes, because a basic string has no
+  # `\$` escape and Netlify refuses to parse the file at all. Nothing inside a
+  # literal string is processed, which is exactly what a shell command wants.
+  command = 'HARD_BIN=$(bash scripts/ci/ensure-compiler.sh) npm run build'
   publish = ".next"
 
 [build.environment]
