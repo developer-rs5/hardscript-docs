@@ -46,17 +46,65 @@ REF="${HARD_REF:-v0.9-alpha}"
 BIN_NAME="hard"
 SRC="${HARD_HOME_SRC:-$PWD/.hardscript-compiler}"
 
-# Netlify persists /root/.cache between builds, and the repository directory is
-# discarded, so a target dir under the cache root is what turns a four-minute
-# Rust build into a no-op on the next deploy.
-if [ -z "${CARGO_TARGET_DIR:-}" ] && [ -d /root/.cache ]; then
-  export CARGO_TARGET_DIR="/root/.cache/hardscript-target"
+# Caching, on a CI host
+# ---------------------
+# The repository directory is discarded between deploys, so anything that makes
+# the compiler build expensive has to live outside it or it is paid again every
+# time: the crate downloads, the toolchain, and the compiled output. /root/.cache
+# is the directory CI images persist, so those three go there.
+#
+# Only on a host that looks like one, and only when the variables are unset, so
+# a developer machine with a warm ~/.cargo is left alone.
+if [ -d /root/.cache ] && [ -z "${CI:-}" ]; then
+  :
+elif [ -d /root/.cache ]; then
+  export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/root/.cache/hardscript-target}"
+  export CARGO_HOME="${CARGO_HOME:-/root/.cache/cargo-home}"
+  export RUSTUP_HOME="${RUSTUP_HOME:-/root/.cache/rustup-home}"
+  log "CI host: caching the Rust toolchain, crate downloads and build output under /root/.cache"
 fi
 
 log() { printf 'ensure-compiler: %s\n' "$1" >&2; }
 
 usable() {
   [ -n "${1:-}" ] && [ -x "$1" ] && [ -s "$1" ]
+}
+
+# A Rust toolchain that can actually run
+# -------------------------------------
+# Most CI images ship rustup with no default toolchain selected, and cargo then
+# refuses to do anything:
+#
+#   error: rustup could not choose a version of cargo to run, because one
+#   wasn't specified explicitly, and no default is configured.
+#
+# Rather than guess which toolchain a host has, this asks cargo whether it works
+# and, if it does not, installs a named one and pins it for the build with
+# RUSTUP_TOOLCHAIN. Pinning matters twice over: cargo stops guessing, and the
+# build does not depend on whatever `rustup default` happened to point at.
+ensure_rust() {
+  if cargo --version >/dev/null 2>&1; then
+    return 0
+  fi
+  if ! command -v rustup >/dev/null 2>&1; then
+    log "FATAL: cargo is not on PATH and rustup is not installed either."
+    log "  Install Rust from https://rustup.rs, or set HARD_BIN to a prebuilt compiler."
+    return 1
+  fi
+  local toolchain="${RUSTUP_TOOLCHAIN:-stable}"
+  log "cargo cannot run yet (no default rustup toolchain); installing $toolchain"
+  if ! rustup toolchain install "$toolchain" --profile minimal --no-self-update >/dev/null 2>&1; then
+    log "FATAL: could not install the $toolchain toolchain."
+    log "  Check network access to static.rust-lang.org, or set HARD_BIN to a"
+    log "  prebuilt compiler."
+    return 1
+  fi
+  export RUSTUP_TOOLCHAIN="$toolchain"
+  if ! cargo --version >/dev/null 2>&1; then
+    log "FATAL: cargo still cannot run after installing $toolchain"
+    return 1
+  fi
+  log "using $(cargo --version 2>/dev/null | head -1)"
 }
 
 # Never let git stop for a username: on a build host there is no terminal, and
@@ -126,10 +174,13 @@ fi
 # `--bin hard` rather than `cargo install`: install copies the binary somewhere
 # on PATH and then this script has to find it again, and a build keeps the
 # artefact exactly where we pointed HARD_BIN.
+ensure_rust || exit 1
+
 log "building the compiler (minutes on a cold cache, seconds once the target dir is warm)"
 if ! ( cd "$SRC" && cargo build --release --bin "$BIN_NAME" ); then
-  log "FATAL: the compiler build failed. Is a Rust toolchain on this host?"
-  log "  Install Rust from https://rustup.rs, or set HARD_BIN to a prebuilt compiler."
+  log "FATAL: the compiler build failed after a working toolchain was confirmed."
+  log "  The full cargo output is above; the first error in it is the real one."
+  log "  Or set HARD_BIN to a compiler you have already built."
   exit 1
 fi
 

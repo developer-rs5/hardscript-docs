@@ -111,6 +111,30 @@ describe("ensure-compiler.sh", () => {
     expect(script).toContain("--branch \"$REF\"");
   });
 
+  it("makes cargo runnable on a host that ships rustup without a toolchain", () => {
+    // Most CI images have rustup and no default toolchain, and cargo then
+    // refuses to do anything: "rustup could not choose a version of cargo to
+    // run". Probing cargo and pinning a named toolchain is what makes this work
+    // on a host nobody configured.
+    expect(script).toContain("ensure_rust()");
+    expect(script).toMatch(/if cargo --version >\/dev\/null 2>&1; then\n    return 0/);
+    expect(script).toContain("rustup toolchain install");
+    expect(script).toContain('export RUSTUP_TOOLCHAIN="$toolchain"');
+    // Probing first is the point: a developer machine with a working toolchain
+    // must not download a second one.
+    expect(script.indexOf("ensure_rust()")).toBeLessThan(script.indexOf("cargo build"));
+  });
+
+  it("keeps the expensive Rust state out of the discarded repo directory on CI", () => {
+    // The build output, the crate downloads and the toolchain all cost minutes.
+    // If they live in the repo directory, every deploy pays again.
+    expect(script).toContain("/root/.cache/hardscript-target");
+    expect(script).toContain("/root/.cache/cargo-home");
+    expect(script).toContain("/root/.cache/rustup-home");
+    // And only where it is safe: a developer with a warm ~/.cargo keeps it.
+    expect(script).toMatch(/CARGO_HOME:-/);
+  });
+
   it("explains the private-repository failure instead of leaving a git error", () => {
     // The failure this replaces was `fatal: could not read Username`, which
     // tells a build host operator nothing about what to do next.
