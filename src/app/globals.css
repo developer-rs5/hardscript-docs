@@ -1,26 +1,259 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens.
+ *
+ * One palette, two themes. Light and dark are the same token names with
+ * different values, so every component is written once and both themes work.
+ * `.dark` is set on <html> by an inline script before paint, which is why the
+ * token values live in plain CSS variables rather than in Tailwind classes.
+ */
+@theme {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-bad: var(--bad);
+  --color-code-bg: var(--code-bg);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #ffffff;
+  --surface: #fbfbfc;
+  --surface-2: #f4f4f6;
+  --line: #e6e6ea;
+  --ink: #16161a;
+  --ink-muted: #55555f;
+  --ink-subtle: #86868f;
+  --accent: #d4380d;
+  --accent-ink: #ffffff;
+  --accent-soft: #fdf0ec;
+  --ok: #16794a;
+  --warn: #a16207;
+  --bad: #b42318;
+  --code-bg: #f7f7f9;
+  --grid: rgba(0, 0, 0, 0.045);
+  --glow: rgba(212, 56, 13, 0.14);
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  --canvas: #0a0a0c;
+  --surface: #101014;
+  --surface-2: #16161c;
+  --line: #23232b;
+  --ink: #f2f2f4;
+  --ink-muted: #a1a1ac;
+  --ink-subtle: #6f6f7c;
+  --accent: #ff6a3d;
+  --accent-ink: #14060;
+  --accent-soft: #1a0f0b;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  --code-bg: #0d0d11;
+  --grid: rgba(255, 255, 255, 0.05);
+  --glow: rgba(255, 106, 61, 0.16);
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+* {
+  border-color: var(--line);
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* The grid behind the hero. Cheap: two gradients, no images, no JS. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+
+/* Faint horizontal rule used between page sections. */
+.rule {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--line) 15%, var(--line) 85%, transparent);
+}
+
+::selection {
+  background: var(--accent);
+  color: #fff;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scrollbars that do not fight the theme. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+/*
+ * Prose. Hand-written rather than pulled from @tailwindcss/typography, so the
+ * docs typography is exactly the type scale we want and there is one fewer
+ * dependency to keep in step.
+ */
+.prose {
+  --prose-code-bg: var(--code-bg);
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1.75;
+  max-width: 46rem;
+}
+.prose > * + * {
+  margin-top: 1.1em;
+}
+.prose h2 {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  margin-top: 2.4em;
+  margin-bottom: 0.7em;
+  scroll-margin-top: 5rem;
+}
+.prose h3 {
+  font-size: 1.15rem;
+  font-weight: 650;
+  margin-top: 1.9em;
+  margin-bottom: 0.5em;
+  scroll-margin-top: 5rem;
+}
+.prose h4 {
+  font-size: 1rem;
+  font-weight: 650;
+  margin-top: 1.6em;
+  margin-bottom: 0.4em;
+}
+.prose p {
+  color: var(--ink-muted);
+}
+.prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.prose a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.prose ul,
+.prose ol {
+  padding-left: 1.4em;
+  color: var(--ink-muted);
+}
+.prose ul {
+  list-style: disc;
+}
+.prose ol {
+  list-style: decimal;
+}
+.prose li + li {
+  margin-top: 0.4em;
+}
+.prose li::marker {
+  color: var(--ink-subtle);
+}
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.1em 0.35em;
+}
+.prose pre {
+  background: var(--code-bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.7;
+}
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+}
+.prose blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 1rem;
+  color: var(--ink-muted);
+  font-style: italic;
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.prose th,
+.prose td {
+  border-bottom: 1px solid var(--line);
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.prose hr {
+  border: 0;
+  height: 1px;
+  background: var(--line);
+  margin: 2.5em 0;
+}
+
+/* Shiki: our themes, so code matches the site rather than a third party. */
+.shiki {
+  background: transparent !important;
+}
+.shiki code {
+  display: block;
+  overflow-x: auto;
 }

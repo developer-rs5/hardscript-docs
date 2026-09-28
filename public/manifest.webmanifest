@@ -1,0 +1,12 @@
+{
+  "name": "HardScript",
+  "short_name": "HardScript",
+  "description": "Build backend APIs at native speed.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0c",
+  "theme_color": "#d4380d",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
